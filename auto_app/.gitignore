@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+node_modules/
+
+# Ignore browser profiles & session data
+data/profiles/
+data/zalo_sessions/*.json
+data/app.db
+*.sqlite3

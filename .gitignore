@@ -1,0 +1,41 @@
+# Large Binaries
+*.exe
+*.exe.zip
+*.zip
+*.tar.gz
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Database & Sensitive Session Data (Preserve privacy)
+data/app.db
+data/zalo_sessions/*.json
+data/profiles/
+*.sqlite3
+*.db
+browser_profiles/
+test_screen.png
+
+# Legacy Windows EXE decompiled dumps (not needed for Web)
+akabiz_recovered/
+akabiz_recovered_editor/
+akabiz_web/
+rea/
+test_*.js
+zca_cookies_test.json
+NOTES_MAI_LAM_TIEP.md
+
+# OS generated files
+.DS_Store
+Thumbs.db

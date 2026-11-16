@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zalo Agent - Ubuntu Automation Platform</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background-color: transparent; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 flex h-screen overflow-hidden font-sans antialiased">
+
+  <!-- SIDEBAR -->
+  <aside class="w-64 bg-slate-900 text-slate-200 flex flex-col flex-shrink-0 border-r border-slate-800 shadow-xl">
+    <div class="p-5 flex items-center gap-3 border-b border-slate-800">
+      <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/30">
+        <i data-lucide="bot" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-base tracking-wide text-white flex items-center gap-2">
+          akaAgent <span class="text-[10px] bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded font-mono">Ubuntu</span>
+        </h1>
+        <p class="text-xs text-slate-400">Marketing & Automation</p>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex-1 p-3 space-y-1 overflow-y-auto custom-scrollbar">
+      <div class="text-[10px] uppercase font-bold text-slate-500 px-3 py-1">Zalo Automation</div>
+      <button onclick="switchTab('data')" id="tab-data-btn" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition text-white bg-blue-600">
+        <i data-lucide="database" class="w-4 h-4"></i>
+        <span>Quét Dữ Liệu Zalo</span>
+      </button>
+
+      <button onclick="switchTab('zalo-tools')" id="tab-zalo-tools-btn" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="message-square-plus" class="w-4 h-4"></i>
+        <span>Zalo Auto Tool (56 hàm)</span>
+      </button>
+
+      <button onclick="switchTab('phone-check')" id="tab-phone-check-btn" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="phone-call" class="w-4 h-4"></i>
+        <span>Kiểm Tra SĐT Zalo</span>
+      </button>
+
+      <div class="text-[10px] uppercase font-bold text-slate-500 px-3 py-1 pt-2">Mạng Xã Hội Khác</div>
+      <button onclick="switchTab('facebook')" id="tab-facebook-btn" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="facebook" class="w-4 h-4 text-blue-400"></i>
+        <span>Facebook Auto (>120 hàm)</span>
+      </button>
+
+      <button onclick="switchTab('tiktok')" id="tab-tiktok-btn" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="video" class="w-4 h-4 text-rose-400"></i>
+        <span>TikTok Auto (41 hàm)</span>
+      </button>
+
+      <div class="text-[10px] uppercase font-bold text-slate-500 px-3 py-1 pt-2">Trợ Lý Thông Minh</div>
+      <button onclick="switchTab('ai')" id="tab-ai-btn" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i>
+        <span>AI Content Engine (14 hàm)</span>
+      </button>
+
+      <div class="text-[10px] uppercase font-bold text-slate-500 px-3 py-1 pt-2">Chiến Dịch & Hệ Thống</div>
+      <button onclick="switchTab('campaigns')" id="tab-campaigns-btn" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="send" class="w-4 h-4"></i>
+        <span>Chiến Dịch Tự Động</span>
+      </button>
+
+      <button onclick="switchTab('data-groups')" id="tab-data-groups-btn" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="folder-kanban" class="w-4 h-4"></i>
+        <span>Nhóm Data Khách Hàng</span>
+      </button>
+
+      <button onclick="switchTab('accounts')" id="tab-accounts-btn" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="users" class="w-4 h-4"></i>
+        <span>Quản Lý Tài Khoản</span>
+      </button>
+
+      <button onclick="switchTab('logs')" id="tab-logs-btn" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="terminal" class="w-4 h-4"></i>
+        <span>Nhật Ký Realtime</span>
+      </button>
+    </nav>
+
+    <!-- System info / Status -->
+    <div class="p-3.5 bg-slate-950/60 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+      <div class="flex items-center gap-2">
+        <span id="ws-status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span id="ws-status-text">Đã kết nối Socket</span>
+      </div>
+      <span class="font-mono text-[11px] text-slate-500">v1.0-native</span>
+    </div>
+  </aside>
+
+  <!-- MAIN WRAPPER -->
+  <main class="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden">
+
+    <!-- TOP HEADER -->
+    <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between flex-shrink-0 shadow-sm">
+      <div class="flex items-center gap-4">
+        <h2 id="page-title" class="text-lg font-bold text-slate-800">Quét Dữ Liệu (/data)</h2>
+        <span id="header-badge" class="text-xs px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full font-medium">chat.zalo.me Protocol</span>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Active Account selector -->
+        <div class="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+          <i data-lucide="user-check" class="w-4 h-4 text-blue-600"></i>
+          <span class="text-xs text-slate-500 font-medium">Tài khoản:</span>
+          <select id="active-account-select" onchange="onAccountChange()" class="bg-transparent text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer">
+            <option value="">Chưa có tài khoản</option>
+          </select>
+        </div>
+
+        <button onclick="openQRModal()" class="flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow-sm transition">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span>Thêm Tài Khoản Zalo</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- CONTENT BODY (Tabs) -->
+    <div class="flex-1 overflow-y-auto p-6 custom-scrollbar">
+
+      <!-- ================= 1. TAB QUÉT DỮ LIỆU (/data) ================= -->
+      <section id="section-data" class="space-y-6">
+        <!-- Sub-tabs bar -->
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+          <div class="flex items-center gap-2">
+            <button onclick="switchDataView('friends')" id="view-tab-friends" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-blue-600 text-white shadow-sm transition">
+              <i data-lucide="users" class="w-4 h-4"></i>
+              <span>Danh Sách Bạn Bè</span>
+              <span id="badge-friends-count" class="ml-1 text-xs px-2 py-0.5 rounded-full bg-blue-700 text-white font-mono">592</span>
+            </button>
+            <button onclick="switchDataView('groups')" id="view-tab-groups" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition">
+              <i data-lucide="message-square" class="w-4 h-4"></i>
+              <span>Nhóm Zalo (Groups)</span>
+              <span id="badge-groups-count" class="ml-1 text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-mono">110</span>
+            </button>
+            <button onclick="switchDataView('members')" id="view-tab-members" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition">
+              <i data-lucide="user-plus" class="w-4 h-4"></i>
+              <span>Thành Viên Nhóm</span>
+              <span id="badge-members-count" class="ml-1 text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-mono">0</span>
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="refreshCurrentView()" title="Tải lại bảng dữ liệu" class="p-2 border border-slate-300 rounded-lg hover:bg-slate-100 text-slate-600 transition">
+              <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+            </button>
+            <a id="export-excel-btn" href="/api/export/contacts" target="_blank" class="flex items-center gap-2 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-sm font-semibold border border-emerald-300 transition">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
+              <span>Xuất Excel</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Action Toolbar -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-500 mb-1">Hành động quét</label>
+              <select id="data-action-select" onchange="onDataActionChange()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-medium">
+                <option value="friends">Zalo - Lấy danh sách bạn bè</option>
+                <option value="recommends">Zalo - Quét gợi ý kết bạn (recommendsv2 Native AES)</option>
+                <option value="groups">Zalo - Lấy danh sách group</option>
+                <option value="group_members_deep">Zalo - Quét thành viên nhóm chuyên sâu (Bao gồm thành viên ẩn)</option>
+                <option value="group_members">Zalo - Quét thành viên nhóm nhanh (API Zalo)</option>
+              </select>
+            </div>
+
+            <!-- Group Selector (visible only for group_members or members view) -->
+            <div id="group-select-wrapper" class="hidden">
+              <label class="block text-xs font-medium text-slate-500 mb-1">Chọn Group Zalo</label>
+              <select id="group-select" onchange="onGroupSelectChange()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-medium max-w-xs">
+                <option value="">-- Chọn nhóm --</option>
+              </select>
+            </div>
+
+            <div id="search-filter-wrapper">
+              <label class="block text-xs font-medium text-slate-500 mb-1">Tìm kiếm</label>
+              <input type="text" id="contact-search" placeholder="Tìm tên, SĐT, UID..." oninput="debounceSearch()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none w-56">
+            </div>
+
+            <div id="gender-filter-wrapper">
+              <label class="block text-xs font-medium text-slate-500 mb-1">Giới tính</label>
+              <select id="contact-gender" onchange="loadContacts()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                <option value="">Tất cả</option>
+                <option value="Nam">Nam</option>
+                <option value="Nữ">Nữ</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 self-end">
+            <button id="trigger-scan-btn" onclick="triggerScan()" class="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold shadow-md shadow-emerald-600/20 transition">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              <span id="trigger-scan-text">Bắt Đầu Quét Bạn Bè</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Scan Progress Banner -->
+        <div id="scan-progress-box" class="hidden bg-blue-50 border border-blue-200 p-4 rounded-xl flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div id="scan-progress-spinner" class="w-8 h-8 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div>
+            <div>
+              <p id="scan-progress-text" class="text-sm font-semibold text-blue-900">Đang quét dữ liệu từ Zalo...</p>
+              <p id="scan-progress-sub" class="text-xs text-blue-700">Dữ liệu sẽ được tự động lưu vào SQLite database</p>
+            </div>
+          </div>
+          <span id="scan-progress-count" class="text-sm font-bold text-blue-800 bg-blue-100 px-3 py-1 rounded-full">0 mục</span>
+        </div>
+
+        <!-- 1. Friends Table -->
+        <div id="table-container-friends" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-700">
+              <thead class="bg-slate-50 text-xs font-semibold text-slate-500 border-b border-slate-200 uppercase tracking-wider">
+                <tr>
+                  <th class="p-3.5 w-12 text-center">STT</th>
+                  <th class="p-3.5 w-16 text-center">Avatar</th>
+                  <th class="p-3.5">Tên Zalo</th>
+                  <th class="p-3.5">Tên Gốc</th>
+                  <th class="p-3.5">Số Điện Thoại</th>
+                  <th class="p-3.5">Giới Tính</th>
+                  <th class="p-3.5">UID</th>
+                  <th class="p-3.5 text-center">Bạn Bè</th>
+                  <th class="p-3.5 text-right">Thao Tác</th>
+                </tr>
+              </thead>
+              <tbody id="contacts-table-body" class="divide-y divide-slate-100">
+                <tr>
+                  <td colspan="9" class="p-8 text-center text-slate-400">Đang tải dữ liệu bạn bè...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- Pagination -->
+          <div class="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+            <span id="contacts-count-text">Hiển thị 0 dữ liệu</span>
+            <div class="flex items-center gap-2">
+              <button onclick="prevPage()" class="px-3 py-1.5 border border-slate-300 rounded bg-white hover:bg-slate-100 font-medium">‹ Trang trước</button>
+              <span id="page-num" class="font-bold px-2 text-slate-700">1</span>
+              <button onclick="nextPage()" class="px-3 py-1.5 border border-slate-300 rounded bg-white hover:bg-slate-100 font-medium">Trang sau ›</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Groups Table -->
+        <div id="table-container-groups" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-700">
+              <thead class="bg-slate-50 text-xs font-semibold text-slate-500 border-b border-slate-200 uppercase tracking-wider">
+                <tr>
+                  <th class="p-3.5 w-12 text-center">STT</th>
+                  <th class="p-3.5 w-16 text-center">Avatar</th>
+                  <th class="p-3.5">Tên Nhóm Zalo</th>
+                  <th class="p-3.5 font-mono">Group ID</th>
+                  <th class="p-3.5 text-center">Số Thành Viên</th>
+                  <th class="p-3.5 text-center">Trạng Thái</th>
+                  <th class="p-3.5 text-right">Thao Tác</th>
+                </tr>
+              </thead>
+              <tbody id="groups-table-body" class="divide-y divide-slate-100">
+                <tr>
+                  <td colspan="7" class="p-8 text-center text-slate-400">Đang tải danh sách nhóm Zalo...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+            <span id="groups-count-text">Hiển thị 0 nhóm</span>
+          </div>
+        </div>
+
+        <!-- 3. Group Members Table -->
+        <div id="table-container-members" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 id="current-group-viewing-title" class="font-bold text-sm text-slate-800">Thành viên nhóm: Vui lòng chọn một nhóm để xem</h4>
+              <span id="members-count-text" class="text-xs text-slate-500">0 thành viên</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="triggerDeepScanCurrentGroup()" class="px-3 py-1.5 text-xs bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 rounded-lg font-bold flex items-center gap-1.5 shadow-sm transition">
+                <i data-lucide="scan-search" class="w-3.5 h-3.5"></i>
+                <span>Quét Chuyên Sâu (Thành Viên Ẩn)</span>
+              </button>
+              <button onclick="openBroadcastModalForGroup()" class="px-3 py-1.5 text-xs bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-bold flex items-center gap-1.5 shadow-sm transition">
+                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                <span>Gửi Tin Toàn Bộ Nhóm (Share Method)</span>
+              </button>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-700">
+              <thead class="bg-slate-50 text-xs font-semibold text-slate-500 border-b border-slate-200 uppercase tracking-wider">
+                <tr>
+                  <th class="p-3.5 w-12 text-center">STT</th>
+                  <th class="p-3.5 w-16 text-center">Avatar</th>
+                  <th class="p-3.5">Tên Thành Viên</th>
+                  <th class="p-3.5 font-mono">UID / Định danh</th>
+                  <th class="p-3.5 text-center">Vai Trò</th>
+                  <th class="p-3.5 text-center">Quan Hệ</th>
+                  <th class="p-3.5 text-center">Trạng Thái</th>
+                  <th class="p-3.5 text-right">Thao Tác</th>
+                </tr>
+              </thead>
+              <tbody id="members-table-body" class="divide-y divide-slate-100">
+                <tr>
+                  <td colspan="8" class="p-8 text-center text-slate-400">Chưa chọn nhóm hoặc nhóm chưa được quét thành viên.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 2. TAB KIỂM TRA SĐT CÓ ZALO ================= -->
+      <section id="section-phone-check" class="hidden space-y-6">
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 class="text-base font-bold text-slate-800 mb-1 flex items-center gap-2">
+            <i data-lucide="shield-check" class="w-5 h-5 text-blue-600"></i>
+            <span>Kiểm Tra Hàng Loạt SĐT Có Zalo</span>
+          </h3>
+          <p class="text-xs text-slate-500 mb-4">Hệ thống áp dụng cơ chế giãn cách an toàn ngẫu nhiên (1.2s - 2.5s) để tránh bị Zalo giới hạn kiểm tra (Anti-ban quota).</p>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-1 space-y-3">
+              <label class="block text-xs font-semibold text-slate-700">Nhập danh sách SĐT (mỗi số 1 dòng):</label>
+              <textarea id="phone-input" rows="8" placeholder="0981241637&#10;0912345678&#10;0909123456" class="w-full border border-slate-300 rounded-lg p-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+              <div class="flex items-center justify-between">
+                <span id="phone-count-badge" class="text-xs text-slate-500">0 số điện thoại</span>
+                <button onclick="startPhoneCheck()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow-sm transition flex items-center gap-2">
+                  <i data-lucide="play" class="w-4 h-4"></i>
+                  <span>Bắt Đầu Kiểm Tra</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="lg:col-span-2">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-semibold text-slate-700">Lịch sử & Kết quả kiểm tra gần nhất:</span>
+                <a href="/api/export/phones" target="_blank" class="text-xs text-blue-600 hover:underline flex items-center gap-1 font-medium">
+                  <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                  <span>Xuất Excel kết quả</span>
+                </a>
+              </div>
+              <div class="border border-slate-200 rounded-lg overflow-hidden max-h-80 overflow-y-auto custom-scrollbar">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
+                    <tr>
+                      <th class="p-2.5">SĐT</th>
+                      <th class="p-2.5">Trạng thái</th>
+                      <th class="p-2.5">Tên Zalo</th>
+                      <th class="p-2.5">Zalo ID</th>
+                      <th class="p-2.5">Thời gian</th>
+                    </tr>
+                  </thead>
+                  <tbody id="phone-results-body" class="divide-y divide-slate-100">
+                    <tr><td colspan="5" class="p-4 text-center text-slate-400">Chưa có lượt kiểm tra nào.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 3. TAB NHÓM DATA (/data-groups) ================= -->
+      <section id="section-data-groups" class="hidden space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-bold text-slate-800">Quản Lý Nhóm Data</h3>
+            <p class="text-xs text-slate-500">Tạo tập khách hàng mục tiêu để đưa vào chiến dịch tự động</p>
+          </div>
+          <button onclick="openCreateGroupModal()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow-sm flex items-center gap-2">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Tạo Nhóm Data Mới</span>
+          </button>
+        </div>
+
+        <div id="data-groups-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <!-- Dynamically filled -->
+        </div>
+      </section>
+
+      <!-- ================= 4. TAB CHIẾN DỊCH (/campaigns) ================= -->
+      <section id="section-campaigns" class="hidden space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-bold text-slate-800">Chiến Dịch Tự Động Gửi Tin</h3>
+            <p class="text-xs text-slate-500">Lên lịch gửi tin nhắn hàng loạt kèm nội dung Spintax chống spam</p>
+          </div>
+          <button onclick="openCreateCampaignModal()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow-sm flex items-center gap-2">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Tạo Chiến Dịch Mới</span>
+          </button>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 text-xs font-semibold text-slate-500 border-b border-slate-200 uppercase">
+              <tr>
+                <th class="p-3.5">Tên chiến dịch</th>
+                <th class="p-3.5">Loại</th>
+                <th class="p-3.5">Trạng thái</th>
+                <th class="p-3.5">Tiến độ</th>
+                <th class="p-3.5">Giãn cách (s)</th>
+                <th class="p-3.5 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="campaigns-table-body" class="divide-y divide-slate-100">
+              <tr><td colspan="6" class="p-8 text-center text-slate-400">Chưa có chiến dịch nào được tạo.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================= 5. TAB TÀI KHOẢN ================= -->
+      <section id="section-accounts" class="hidden space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-bold text-slate-800">Danh Sách Tài Khoản Zalo Đã Kết Nối</h3>
+            <p class="text-xs text-slate-500">Phiên đăng nhập được lưu trữ an toàn trong SQLite và tự động kết nối lại khi khởi động máy</p>
+          </div>
+          <button onclick="openQRModal()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow-sm flex items-center gap-2">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Thêm Tài Khoản</span>
+          </button>
+        </div>
+
+        <div id="accounts-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <!-- Dynamically filled -->
+        </div>
+      </section>
+
+      <!-- ================= TAB: ZALO AUTO TOOL (56 ACTIONS) ================= -->
+      <section id="section-zalo-tools" class="hidden space-y-6">
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 rounded-2xl text-white shadow-lg">
+          <div class="flex items-center gap-3 mb-2">
+            <span class="p-2 bg-white/20 rounded-xl backdrop-blur-sm"><i data-lucide="message-square-plus" class="w-6 h-6"></i></span>
+            <h3 class="text-xl font-bold">Zalo Auto Tool (Kế Thừa 56 Hàm Tự Động Hóa)</h3>
+          </div>
+          <p class="text-xs text-blue-100 max-w-2xl leading-relaxed">
+            Hệ thống tự động hóa thao tác người dùng: Gửi tin nhắn theo SĐT, tự động chúc mừng sinh nhật, kết bạn gợi ý, duyệt lời mời và tham gia nhóm Zalo an toàn với cơ chế giãn cách tự nhiên.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Card 1: Gửi tin theo SĐT -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="phone-forwarded" class="w-4 h-4 text-blue-600"></i>
+              <span>Gửi Tin Nhắn Theo SĐT</span>
+            </div>
+            <p class="text-xs text-slate-500">Tự động tìm kiếm SĐT trên Zalo và gửi tin nhắn (kèm Spintax).</p>
+            <input type="text" id="zalo-send-phone-num" placeholder="Nhập SĐT (VD: 0981241637)" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+            <textarea id="zalo-send-phone-msg" rows="3" placeholder="{Chào bạn|Xin chào} [name]! Shop gửi bạn ưu đãi..." class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono"></textarea>
+            <button onclick="executeZaloSendPhone()" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              <span>Gửi Tin Nhắn SĐT</span>
+            </button>
+          </div>
+
+          <!-- Card 2: Tự động chúc mừng sinh nhật -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="cake" class="w-4 h-4 text-pink-500"></i>
+              <span>Tự Động Chúc Mừng Sinh Nhật</span>
+            </div>
+            <p class="text-xs text-slate-500">Quét bạn bè có ngày sinh nhật hôm nay và tự động gửi tin chúc mừng.</p>
+            <textarea id="zalo-hpbd-template" rows="4" placeholder="{Chúc mừng sinh nhật|Happy Birthday} [name]! 🎉🎂 Chúc bạn tuổi mới nhiều may mắn và thành công nhé! ✨" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono"></textarea>
+            <button onclick="executeZaloHpbd()" class="w-full py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="gift" class="w-3.5 h-3.5"></i>
+              <span>Quét & Chúc Mừng Sinh Nhật</span>
+            </button>
+          </div>
+
+          <!-- Card 3: Kết bạn theo SĐT -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="user-plus" class="w-4 h-4 text-emerald-600"></i>
+              <span>Kết Bạn Qua Số Điện Thoại</span>
+            </div>
+            <p class="text-xs text-slate-500">Tìm kiếm SĐT và gửi lời mời kết bạn kèm lời chào tùy chỉnh.</p>
+            <input type="text" id="zalo-add-phone-num" placeholder="Nhập SĐT cần kết bạn" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+            <textarea id="zalo-add-phone-greeting" rows="2" placeholder="{Chào bạn|Xin chào}, mình muốn kết bạn giao lưu cùng bạn!" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono"></textarea>
+            <button onclick="executeZaloAddPhone()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
+              <span>Gửi Lời Mời Kết Bạn</span>
+            </button>
+          </div>
+
+          <!-- Card 4: Kết bạn theo gợi ý -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="users" class="w-4 h-4 text-indigo-600"></i>
+              <span>Kết Bạn Theo Gợi Ý Zalo</span>
+            </div>
+            <p class="text-xs text-slate-500">Mở danh sách gợi ý và tự động gửi lời mời với giãn cách ngẫu nhiên.</p>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Số lượng lời mời tối đa:</label>
+              <input type="number" id="zalo-recommend-limit" value="10" min="1" max="50" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+            </div>
+            <button onclick="executeZaloAddRecommend()" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              <span>Bắt Đầu Kết Bạn Gợi Ý</span>
+            </button>
+          </div>
+
+          <!-- Card 5: Tự động đồng ý kết bạn -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="check-check" class="w-4 h-4 text-teal-600"></i>
+              <span>Tự Động Đồng Ý Lời Mời</span>
+            </div>
+            <p class="text-xs text-slate-500">Tự động duyệt hàng loạt lời mời kết bạn đang chờ trên tài khoản.</p>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Số lượng đồng ý tối đa:</label>
+              <input type="number" id="zalo-accept-limit" value="20" min="1" max="100" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+            </div>
+            <button onclick="executeZaloAcceptFriends()" class="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i>
+              <span>Đồng Ý Hàng Loạt</span>
+            </button>
+          </div>
+
+          <!-- Card 6: Tham gia nhóm qua Link -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="link" class="w-4 h-4 text-amber-600"></i>
+              <span>Tham Gia Nhóm Qua Link (Protocol)</span>
+            </div>
+            <p class="text-xs text-slate-500">Mở link liên kết và tự động tham gia nhóm Zalo tức thì.</p>
+            <input type="text" id="zalo-group-link" placeholder="https://zalo.me/g/xxxxxx" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+            <button onclick="executeZaloJoinGroupLink()" class="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
+              <span>Tham Gia Nhóm Ngay</span>
+            </button>
+          </div>
+
+          <!-- Card 7: ZALO AI AUTO CHATBOT CSKH 24/7 (Realtime WebSocket Listener) -->
+          <div class="bg-gradient-to-br from-indigo-50 to-purple-50 p-5 rounded-xl border border-indigo-200 shadow-sm space-y-3 col-span-1 md:col-span-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2 text-indigo-900 font-bold text-sm">
+                <i data-lucide="bot" class="w-4 h-4 text-indigo-600"></i>
+                <span>Zalo AI Chatbot CSKH 24/7 (Realtime WebSocket Listener)</span>
+              </div>
+              <span id="zalo-chatbot-badge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-mono">Đang tắt</span>
+            </div>
+            <p class="text-xs text-indigo-800/80">Lắng nghe tin nhắn đến theo thời gian thực và tự động dùng AI phân loại & trả lời khách hàng 24/7 ngay lập tức.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-700 mb-1">Giọng điệu / Phong cách trả lời:</label>
+                <select id="zalo-chatbot-tone" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white">
+                  <option value="friendly">Thân thiện, chăm sóc tận tình</option>
+                  <option value="expert">Chuyên gia tư vấn</option>
+                  <option value="buyer">Hỗ trợ bán hàng & chốt đơn</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-700 mb-1">Độ trễ trả lời tự nhiên (giây):</label>
+                <input type="number" id="zalo-chatbot-delay" value="2" min="1" max="10" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+              </div>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-700 mb-1">Mẫu tin nhắn dự phòng (Spintax):</label>
+              <input type="text" id="zalo-chatbot-spintax" value="{Dạ chào bạn!|Shop chào bạn nhé!} {Shop đã nhận được tin nhắn và phản hồi bạn ngay đây ạ! ❤️|Bạn cần shop tư vấn sản phẩm nào nhắn shop nhé!}" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+            </div>
+            <div class="flex gap-2 pt-1">
+              <button onclick="startZaloChatbot()" id="btn-start-chatbot" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                <span>Bật AI Chatbot 24/7</span>
+              </button>
+              <button onclick="stopZaloChatbot()" id="btn-stop-chatbot" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold transition">
+                <span>Tắt Bot</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 8: Quản Lý & Kéo Thành Viên Nhóm (Protocol) -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="user-plus" class="w-4 h-4 text-emerald-600"></i>
+              <span>Kéo Thành Viên Vào Nhóm Zalo</span>
+            </div>
+            <p class="text-xs text-slate-500">Mời hàng loạt UID vào nhóm Zalo trực tiếp qua API giao thức.</p>
+            <input type="text" id="zalo-add-group-id" placeholder="Group ID Zalo (VD: 1302820...)" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+            <textarea id="zalo-add-group-uids" rows="2" placeholder="Dán danh sách UID (cách nhau bởi dấu phẩy hoặc xuống dòng)..." class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono"></textarea>
+            <button onclick="executeZaloAddUsersToGroup()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="users" class="w-3.5 h-3.5"></i>
+              <span>Thêm Thành Viên Vào Nhóm</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: FACEBOOK AUTO TOOL (>120 ACTIONS) ================= -->
+      <section id="section-facebook" class="hidden space-y-6">
+        <div class="bg-gradient-to-r from-blue-700 to-indigo-800 p-6 rounded-2xl text-white shadow-lg flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap-3 mb-2">
+              <span class="p-2 bg-white/20 rounded-xl backdrop-blur-sm"><i data-lucide="facebook" class="w-6 h-6"></i></span>
+              <h3 class="text-xl font-bold">Facebook Auto Tool (Chrome Native Automation)</h3>
+            </div>
+            <p class="text-xs text-blue-100 max-w-2xl leading-relaxed">
+              Điều khiển Chrome thật trên Ubuntu: Nuôi nick lướt Newsfeed, thả tim tự động, đăng bài cá nhân, đăng bài vào hội nhóm, kết bạn gợi ý và quét bình luận.
+            </p>
+          </div>
+          <button onclick="openFacebookChromeLogin()" class="px-4 py-2.5 bg-white text-blue-800 rounded-xl text-xs font-bold shadow-md hover:bg-blue-50 transition flex items-center gap-2 flex-shrink-0">
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+            <span>Mở Chrome Đăng Nhập Facebook</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Card 1: Nuôi nick Newsfeed -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="scroll" class="w-4 h-4 text-blue-600"></i>
+              <span>Nuôi Nick Lướt Newsfeed</span>
+            </div>
+            <p class="text-xs text-slate-500">Lướt bảng tin, dừng đọc bài tự nhiên và ngẫu nhiên thả like.</p>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Thời gian (phút):</label>
+                <input type="number" id="fb-surf-minutes" value="5" min="1" max="60" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Tỷ lệ like (0-1):</label>
+                <input type="number" id="fb-like-rate" value="0.4" step="0.1" min="0" max="1" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+              </div>
+            </div>
+            <button onclick="executeFbNewsfeed()" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="play" class="w-3.5 h-3.5"></i>
+              <span>Khởi Động Nuôi Nick</span>
+            </button>
+          </div>
+
+          <!-- Card 2: Đăng bài cá nhân -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="edit-3" class="w-4 h-4 text-emerald-600"></i>
+              <span>Đăng Bài Lên Trang Cá Nhân</span>
+            </div>
+            <p class="text-xs text-slate-500">Tự động mở khung đăng bài và đăng nội dung kèm Spintax.</p>
+            <textarea id="fb-post-content" rows="4" placeholder="{Hôm nay thật tuyệt vời|Chúc mọi người ngày mới an lành}! {Ghé thăm trang của mình nhé|Chào cả nhà thân yêu}! 🌟" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono"></textarea>
+            <button onclick="executeFbPostProfile()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              <span>Đăng Bài Cá Nhân</span>
+            </button>
+          </div>
+
+          <!-- Card 3: Đăng bài vào nhóm -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="users" class="w-4 h-4 text-purple-600"></i>
+              <span>Đăng Bài Vào Hội Nhóm</span>
+            </div>
+            <p class="text-xs text-slate-500">Mở link nhóm và tự động đăng bài viết.</p>
+            <input type="text" id="fb-post-group-url" placeholder="Link nhóm hoặc Group ID" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+            <textarea id="fb-post-group-content" rows="3" placeholder="Nội dung chia sẻ vào nhóm..." class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono"></textarea>
+            <button onclick="executeFbPostGroup()" class="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+              <span>Đăng Vào Nhóm</span>
+            </button>
+          </div>
+
+          <!-- Card 4: Kết bạn gợi ý -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="user-plus" class="w-4 h-4 text-cyan-600"></i>
+              <span>Kết Bạn Theo Gợi Ý Facebook</span>
+            </div>
+            <p class="text-xs text-slate-500">Tự động kết bạn trong danh sách "Những người bạn có thể biết".</p>
+            <input type="number" id="fb-recommend-limit" value="10" min="1" max="50" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+            <button onclick="executeFbAddRecommend()" class="w-full py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
+              <span>Gửi Lời Mời Kết Bạn FB</span>
+            </button>
+          </div>
+
+          <!-- Card 5: Quét bình luận bài viết -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3 col-span-1 md:col-span-2">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="search" class="w-4 h-4 text-amber-600"></i>
+              <span>Quét Người Bình Luận Trong Bài Viết</span>
+            </div>
+            <p class="text-xs text-slate-500">Nhập link bài viết Facebook công khai để bóc tách người bình luận.</p>
+            <div class="flex gap-2">
+              <input type="text" id="fb-scan-post-url" placeholder="https://www.facebook.com/permalink.php?story_fbid=..." class="flex-1 border border-slate-300 rounded-lg p-2 text-xs font-mono">
+              <button onclick="executeFbScanComments()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 flex-shrink-0">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                <span>Quét Bình Luận</span>
+              </button>
+            </div>
+            <div id="fb-scan-results" class="hidden text-xs bg-slate-50 p-3 rounded-lg border border-slate-200 max-h-40 overflow-y-auto"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: TIKTOK AUTO TOOL (41 ACTIONS) ================= -->
+      <section id="section-tiktok" class="hidden space-y-6">
+        <div class="bg-gradient-to-r from-slate-900 via-rose-950 to-slate-900 p-6 rounded-2xl text-white shadow-lg flex items-center justify-between border border-rose-500/20">
+          <div>
+            <div class="flex items-center gap-3 mb-2">
+              <span class="p-2 bg-rose-500/20 rounded-xl border border-rose-500/30 text-rose-400"><i data-lucide="video" class="w-6 h-6"></i></span>
+              <h3 class="text-xl font-bold">TikTok Auto Tool (41 Hàm Tự Động Hóa)</h3>
+            </div>
+            <p class="text-xs text-rose-200 max-w-2xl leading-relaxed">
+              Tự động lướt For You feed, thả tim, bình luận tương tác nuôi kênh TikTok, và công cụ tải video TikTok chất lượng cao không dính logo watermark.
+            </p>
+          </div>
+          <button onclick="openTikTokChromeLogin()" class="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-2 flex-shrink-0">
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+            <span>Mở Chrome Đăng Nhập TikTok</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Card 1: Lướt For You Feed -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="play-circle" class="w-4 h-4 text-rose-600"></i>
+              <span>Lướt Xem Video & Tương Tác For You</span>
+            </div>
+            <p class="text-xs text-slate-500">Tự động xem video từ 6s-14s, ngẫu nhiên thả tim và chuyển video kế tiếp bằng phím mũi tên.</p>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Thời gian lướt (phút):</label>
+                <input type="number" id="tiktok-surf-minutes" value="5" min="1" max="60" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Tỷ lệ thả tim (0-1):</label>
+                <input type="number" id="tiktok-like-rate" value="0.5" step="0.1" min="0" max="1" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+              </div>
+            </div>
+            <button onclick="executeTikTokSurf()" class="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="play" class="w-3.5 h-3.5"></i>
+              <span>Bắt Đầu Lướt TikTok</span>
+            </button>
+          </div>
+
+          <!-- Card 2: Tải video không logo watermark -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="download-cloud" class="w-4 h-4 text-emerald-600"></i>
+              <span>Tải Video TikTok Không Logo Watermark</span>
+            </div>
+            <p class="text-xs text-slate-500">Dán link video TikTok bất kỳ để lấy link tải video gốc MP4 sạch 100% không dính logo watermark.</p>
+            <input type="text" id="tiktok-dl-url" placeholder="https://www.tiktok.com/@user/video/..." class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+            <button onclick="executeTikTokDownload()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span>Lấy Link Tải Video Sạch</span>
+            </button>
+            <div id="tiktok-dl-result" class="hidden text-xs bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: AI CONTENT ENGINE (14 ACTIONS) ================= -->
+      <section id="section-ai" class="hidden space-y-6">
+        <div class="bg-gradient-to-r from-amber-500 via-orange-600 to-amber-600 p-6 rounded-2xl text-white shadow-lg">
+          <div class="flex items-center gap-3 mb-2">
+            <span class="p-2 bg-white/20 rounded-xl backdrop-blur-sm"><i data-lucide="sparkles" class="w-6 h-6"></i></span>
+            <h3 class="text-xl font-bold">AI Intelligent Content Engine (14 Hàm AI Thông Minh)</h3>
+          </div>
+          <p class="text-xs text-amber-100 max-w-2xl leading-relaxed">
+            Sinh nội dung tương tác tự động: Viết bình luận theo ngữ cảnh bài viết, tự động phản hồi khách hàng thông minh (mua hàng / khiếu nại) và tạo kịch bản tin nhắn Spintax đa tầng.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Card 1: Viết bình luận -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="message-circle" class="w-4 h-4 text-amber-600"></i>
+              <span>Tự Động Viết Bình Luận</span>
+            </div>
+            <p class="text-xs text-slate-500">Phân tích bài viết và tạo bình luận tự nhiên theo giọng điệu.</p>
+            <textarea id="ai-write-cmt-input" rows="3" placeholder="Dán nội dung bài viết vào đây..." class="w-full border border-slate-300 rounded-lg p-2 text-xs"></textarea>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Phong cách:</label>
+              <select id="ai-write-cmt-tone" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white">
+                <option value="friendly">Thân thiện, ủng hộ</option>
+                <option value="expert">Chuyên gia phân tích</option>
+                <option value="buyer">Khách hàng hỏi mua</option>
+              </select>
+            </div>
+            <button onclick="executeAiWriteCmt()" class="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="wand-2" class="w-3.5 h-3.5"></i>
+              <span>Sinh Bình Luận AI</span>
+            </button>
+            <div id="ai-write-cmt-result" class="hidden text-xs bg-amber-50 border border-amber-200 text-amber-900 p-2.5 rounded-lg"></div>
+          </div>
+
+          <!-- Card 2: Trả lời khách hàng -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="reply" class="w-4 h-4 text-blue-600"></i>
+              <span>Tự Động Trả Lời Khách Hàng</span>
+            </div>
+            <p class="text-xs text-slate-500">Phân loại bình luận (mua hàng, khiếu nại, hỏi giá) và tạo câu trả lời chuẩn.</p>
+            <textarea id="ai-reply-cmt-input" rows="3" placeholder="VD: Shop ơi áo này có freeship ra Hà Nội không ạ?" class="w-full border border-slate-300 rounded-lg p-2 text-xs"></textarea>
+            <button onclick="executeAiReplyCmt()" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="bot" class="w-3.5 h-3.5"></i>
+              <span>Tạo Câu Trả Lời</span>
+            </button>
+            <div id="ai-reply-cmt-result" class="hidden text-xs bg-blue-50 border border-blue-200 text-blue-900 p-2.5 rounded-lg"></div>
+          </div>
+
+          <!-- Card 3: Tạo kịch bản Spintax -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 text-slate-800 font-bold text-sm">
+              <i data-lucide="file-code" class="w-4 h-4 text-purple-600"></i>
+              <span>Tạo Kịch Bản Tin Nhắn Spintax</span>
+            </div>
+            <p class="text-xs text-slate-500">Tạo mẫu tin nhắn tiếp thị cá nhân hóa có cấu trúc Spintax chuẩn.</p>
+            <input type="text" id="ai-spintax-topic" placeholder="Chủ đề (VD: Mỹ phẩm Hàn Quốc sale 30%)" class="w-full border border-slate-300 rounded-lg p-2 text-xs">
+            <button onclick="executeAiSpintaxMessage()" class="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <i data-lucide="file-plus" class="w-3.5 h-3.5"></i>
+              <span>Tạo Kịch Bản Spintax</span>
+            </button>
+            <div id="ai-spintax-result" class="hidden text-xs bg-purple-50 border border-purple-200 text-purple-900 p-2.5 rounded-lg font-mono"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 6. TAB REALTIME LOGS ================= -->
+      <section id="section-logs" class="hidden space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+            <i data-lucide="terminal" class="w-5 h-5 text-slate-600"></i>
+            <span>Nhật Ký Hoạt Động (Live Terminal)</span>
+          </h3>
+          <button onclick="clearLogs()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 rounded text-xs font-medium text-slate-700">Xóa Log</button>
+        </div>
+        <div id="log-terminal" class="bg-slate-950 text-emerald-400 font-mono text-xs p-4 rounded-xl h-[500px] overflow-y-auto custom-scrollbar border border-slate-800 space-y-1">
+          <div>[System] Sẵn sàng nhận sự kiện realtime từ backend server...</div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ================= ADD ACCOUNT MODAL (QR & COOKIE) ================= -->
+  <div id="qr-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 text-center shadow-2xl border border-slate-100 relative">
+      <button onclick="closeQRModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <!-- Modal Tabs: QR vs Cookie -->
+      <div class="flex items-center justify-center gap-2 mb-4 p-1 bg-slate-100 rounded-xl">
+        <button id="modal-tab-qr-btn" onclick="switchModalTab('qr')" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition bg-white text-blue-600 shadow-sm">
+          Quét Mã QR Zalo Web
+        </button>
+        <button id="modal-tab-cookie-btn" onclick="switchModalTab('cookie')" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition text-slate-500 hover:text-slate-800">
+          Đăng Nhập Bằng Cookie
+        </button>
+      </div>
+
+      <!-- VIEW 1: QR CODE LOGIN -->
+      <div id="modal-view-qr">
+        <h3 class="text-base font-bold text-slate-800">Quét Mã QR (chat.zalo.me)</h3>
+        <p id="qr-modal-message" class="text-xs text-slate-500 mt-1 mb-4">Mở app Zalo trên điện thoại quét mã QR chính hãng từ Zalo Web</p>
+
+        <div class="bg-slate-100 border border-slate-200 rounded-xl p-3 flex items-center justify-center min-h-[260px] relative">
+          <div id="qr-loading-spinner" class="flex flex-col items-center gap-2 text-slate-400">
+            <div class="w-8 h-8 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div>
+            <span class="text-xs font-medium">Đang tải mã QR từ chat.zalo.me...</span>
+          </div>
+          <img id="qr-image" class="hidden w-64 h-64 object-contain rounded-lg" alt="Zalo QR Code" />
+        </div>
+
+        <div id="qr-scanned-user" class="hidden mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-left">
+          <img id="qr-scanned-avatar" src="" class="w-10 h-10 rounded-full border border-emerald-300" alt="">
+          <div>
+            <p id="qr-scanned-name" class="text-xs font-bold text-emerald-900">Người dùng Zalo</p>
+            <p class="text-[11px] text-emerald-700">Đã quét QR! Vui lòng ấn "Xác nhận đăng nhập" trên điện thoại.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 2: COOKIE LOGIN (Direct & 100% Reliable) -->
+      <div id="modal-view-cookie" class="hidden text-left space-y-3">
+        <h3 class="text-base font-bold text-slate-800 text-center">Đăng Nhập Bằng Cookie chat.zalo.me</h3>
+        <p class="text-xs text-slate-500 text-center mb-2">Đăng nhập siêu tốc và 100% ổn định từ phiên trình duyệt đã mở sẵn.</p>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900 space-y-1">
+          <p class="font-bold">Cách lấy Cookie đơn giản:</p>
+          <ol class="list-decimal list-inside space-y-0.5 text-[11px] text-blue-800">
+            <li>Mở tab <a href="https://chat.zalo.me/" target="_blank" class="underline font-bold">chat.zalo.me</a> đã đăng nhập trên trình duyệt.</li>
+            <li>Bấm <b>F12</b> -> chọn tab <b>Console</b>.</li>
+            <li>Gõ <code class="bg-white px-1 py-0.5 rounded text-blue-700 font-mono">document.cookie</code> rồi Enter, copy toàn bộ chuỗi kết quả và dán vào bên dưới.</li>
+          </ol>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Chuỗi Cookie (hoặc JSON):</label>
+          <textarea id="cookie-input" rows="4" placeholder="zpw_sek=...; zpw_ver=...; _ga=..." class="w-full border border-slate-300 rounded-lg p-2.5 text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+        </div>
+
+        <button onclick="submitCookieLogin()" id="cookie-login-btn" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow-sm transition flex items-center justify-center gap-2">
+          <i data-lucide="log-in" class="w-4 h-4"></i>
+          <span>Xác Nhận Đăng Nhập Cookie</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= CREATE CAMPAIGN MODAL ================= -->
+  <div id="campaign-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 class="text-base font-bold text-slate-800">Tạo Chiến Dịch Gửi Tin Mới</h3>
+        <button onclick="closeCampaignModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Tên chiến dịch:</label>
+          <input type="text" id="campaign-name" placeholder="VD: Chiến dịch chúc mừng sinh nhật T11" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Loại chiến dịch:</label>
+          <select id="campaign-type" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+            <option value="message_friends">Gửi tin nhắn đến toàn bộ bạn bè</option>
+            <option value="message_all">Gửi tin nhắn đến toàn bộ data đã quét</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Nội dung mẫu (Hỗ trợ Spintax & Biến):</label>
+          <textarea id="campaign-template" rows="4" placeholder="{Chào bạn|Xin chào|Hello} [name]! Chúc bạn một ngày làm việc hiệu quả." class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-xs"></textarea>
+          <p class="text-[11px] text-slate-500 mt-1">Dùng cú pháp <code class="bg-slate-100 px-1 py-0.5 rounded text-blue-600">{A|B|C}</code> để sinh ngẫu nhiên nội dung tránh bị phát hiện spam, và <code class="bg-slate-100 px-1 py-0.5 rounded text-blue-600">[name]</code> để chèn tên khách.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Giãn cách tối thiểu (giây):</label>
+            <input type="number" id="campaign-delay-min" value="5" min="2" class="w-full border border-slate-300 rounded-lg p-2">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Giãn cách tối đa (giây):</label>
+            <input type="number" id="campaign-delay-max" value="15" min="5" class="w-full border border-slate-300 rounded-lg p-2">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t">
+        <button onclick="closeCampaignModal()" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium">Hủy</button>
+        <button onclick="saveCampaign()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold">Tạo Chiến Dịch</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: GỬI TIN NHẮN CHIA SẺ (SHARE METHOD MODAL) -->
+  <div id="share-msg-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="share-2" class="w-5 h-5 text-blue-600"></i>
+          <h3 class="font-bold text-slate-800">Gửi Tin Nhắn (Share Method)</h3>
+        </div>
+        <button onclick="closeShareMsgModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="bg-blue-50 text-blue-700 p-3 rounded-lg text-xs leading-relaxed">
+        💡 <b>Cơ chế Chia sẻ (Forward):</b> Giúp bạn gửi tin nhắn tới thành viên trong nhóm / người lạ mà không bị Zalo chặn người lạ!
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Người nhận:</label>
+          <input type="text" id="share-target-name" readonly class="w-full bg-slate-100 border border-slate-200 rounded-lg p-2.5 text-sm font-semibold text-slate-700">
+          <input type="hidden" id="share-target-uid">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Nội dung tin nhắn (Hỗ trợ Spintax):</label>
+          <textarea id="share-msg-content" rows="4" placeholder="{Chào bạn|Xin chào} [name]! Mình thấy bạn trong nhóm, rất vui được kết nối nhé!" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"></textarea>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="share-method-mode" checked class="rounded text-blue-600">
+          <label for="share-method-mode" class="text-xs text-slate-600 cursor-pointer">Sử dụng phương thức Chia sẻ qua Cloud (Khuyên dùng cho thành viên ẩn/người lạ)</label>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t">
+        <button onclick="closeShareMsgModal()" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium">Hủy</button>
+        <button id="btn-confirm-send-share" onclick="confirmSendShareMsg()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2">
+          <i data-lucide="send" class="w-4 h-4"></i>
+          <span>Gửi Tin Nhắn</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: GỬI HÀNG LOẠT TOÀN BỘ NHÓM (SENDEACHONE MODAL) -->
+  <div id="broadcast-group-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="send" class="w-5 h-5 text-purple-600"></i>
+          <h3 class="font-bold text-slate-800">Gửi Tin Tuần Tự Toàn Bộ Thành Viên Nhóm</h3>
+        </div>
+        <button onclick="closeBroadcastGroupModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Nhóm đang chọn:</label>
+          <input type="text" id="broadcast-group-title" readonly class="w-full bg-slate-100 border border-slate-200 rounded-lg p-2.5 text-sm font-semibold text-slate-700">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Nội dung gửi (Hỗ trợ Spintax & [name]):</label>
+          <textarea id="broadcast-group-content" rows="4" placeholder="{Chào bạn|Xin chào} [name]! {Mình cùng chung nhóm Zalo|Thấy bạn trong nhóm}, rất vui được làm quen và giao lưu nhé!" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Giãn cách min (giây):</label>
+            <input type="number" id="broadcast-delay-min" value="10" min="5" class="w-full border border-slate-300 rounded-lg p-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Giãn cách max (giây):</label>
+            <input type="number" id="broadcast-delay-max" value="20" min="8" class="w-full border border-slate-300 rounded-lg p-2 text-sm">
+          </div>
+        </div>
+
+        <p class="text-[11px] text-slate-500">Áp dụng kỹ thuật <b>SendMessageToFriendBySendEachOneMethodZalo</b>: Gửi chuyển tiếp lần lượt từng người, có giãn cách an toàn ngẫu nhiên để chống Zalo checkpoint.</p>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t">
+        <button onclick="closeBroadcastGroupModal()" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium">Hủy</button>
+        <button id="btn-confirm-broadcast-group" onclick="confirmBroadcastGroup()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2">
+          <i data-lucide="play" class="w-4 h-4"></i>
+          <span>Bắt Đầu Gửi Tuần Tự</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
