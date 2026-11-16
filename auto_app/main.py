@@ -30,8 +30,11 @@ zalo_service_process = None
 
 # Mount templates & static
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+static_dir = os.path.join(BASE_DIR, "static")
+os.makedirs(static_dir, exist_ok=True)
+os.makedirs(os.path.join(BASE_DIR, "data"), exist_ok=True)
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Realtime WebSocket connection manager
 class ConnectionManager:
@@ -90,11 +93,12 @@ async def startup_event():
     alive = await zalo_bridge.is_service_alive()
     if not alive:
         import subprocess
+        import shutil
         env = os.environ.copy()
-        env["PATH"] = f"/home/pccuong/.local/bin:{env.get('PATH', '')}"
+        node_bin = shutil.which("node") or "node"
         service_script = os.path.join(BASE_DIR, "core", "zalo_service.mjs")
         zalo_service_process = subprocess.Popen(
-            ["node", service_script],
+            [node_bin, service_script],
             env=env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
