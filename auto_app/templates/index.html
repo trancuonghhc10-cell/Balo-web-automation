@@ -1403,7 +1403,10 @@
             statusDesc.innerText = 'Vui lòng chờ trong giây lát trong khi hệ thống xử lý.';
 
             try {
-                const res = await fetch(`/api/accounts/${accountId}/data-scan`, {
+                currentScannedItems = [];
+                renderDataScanResults([], action);
+
+                const res = await fetch(`/api/aka-agent/control/v1/accounts/zalo/${accountId}/data-scan/stream`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1412,24 +1415,56 @@
                         zaloGroupId: groupTarget
                     })
                 });
-                const data = await res.json();
-                if (data.success) {
-                    currentScannedItems = data.items || [];
-                    renderDataScanResults(currentScannedItems, action, data.is_hidden_members);
-                    if (data.is_hidden_members && currentScannedItems.length === 0) {
-                        if (spinner) spinner.classList.add('hidden');
-                        if (statusIcon) statusIcon.classList.remove('hidden');
-                        statusTitle.className = 'text-sm font-medium text-amber-400';
-                        statusTitle.innerText = `Nhóm đã bật bảo vệ: Ẩn danh sách thành viên`;
-                        statusDesc.innerText = data.message || 'Nhóm này được thiết lập ẩn thành viên đối với tài khoản không phải quản trị viên.';
-                        progress.classList.remove('hidden');
-                        updateIcons();
-                    } else {
-                        progress.classList.add('hidden');
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // keep remainder
+
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        try {
+                            const event = JSON.parse(line);
+                            if (event.type === 'progress') {
+                                statusTitle.innerText = event.message || 'Đang xử lý...';
+                            } else if (event.type === 'chunk' && Array.isArray(event.items)) {
+                                currentScannedItems.push(...event.items);
+                                renderDataScanResults(currentScannedItems, action, false);
+                                statusTitle.innerText = `Đã nhận ${currentScannedItems.length}/${event.total || currentScannedItems.length} mục...`;
+                            } else if (event.type === 'hidden_notice') {
+                                if (spinner) spinner.classList.add('hidden');
+                                if (statusIcon) statusIcon.classList.remove('hidden');
+                                statusTitle.className = 'text-sm font-medium text-amber-400';
+                                statusTitle.innerText = `Nhóm đã bật bảo vệ: Ẩn danh sách thành viên`;
+                                statusDesc.innerText = event.message || 'Nhóm này được thiết lập ẩn thành viên đối với tài khoản không phải quản trị viên.';
+                                progress.classList.remove('hidden');
+                                updateIcons();
+                            } else if (event.type === 'result') {
+                                if (event.result && Array.isArray(event.result.items) && currentScannedItems.length === 0) {
+                                    currentScannedItems = event.result.items;
+                                    renderDataScanResults(currentScannedItems, action, event.result.is_hidden_members);
+                                }
+                                if (!event.result?.is_hidden_members) {
+                                    progress.classList.add('hidden');
+                                }
+                            } else if (event.type === 'error') {
+                                alert('Lỗi: ' + event.message);
+                                progress.classList.add('hidden');
+                            }
+                        } catch (parseErr) {
+                            console.warn('NDJSON parse error:', parseErr);
+                        }
                     }
-                } else {
-                    progress.classList.add('hidden');
-                    alert('Lỗi quét dữ liệu: ' + (data.message || 'Không thể quét dữ liệu'));
                 }
             } catch (err) {
                 progress.classList.add('hidden');

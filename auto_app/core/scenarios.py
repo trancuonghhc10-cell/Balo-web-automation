@@ -140,24 +140,60 @@ async def scan_zalo_data(account_id: int, action: str = "zalo_groups", options: 
 
 # --- STREAMING DATA SCAN (NDJSON format matching akaAgent / agent.akabiz.net) ---
 async def scan_zalo_data_stream(account_id: int, action: str, options: dict = None) -> AsyncGenerator[str, None]:
+    options = options or {}
     yield json.dumps({"type": "progress", "stage": "init", "message": f"Bắt đầu khởi tạo quét '{action}'..."}) + "\n"
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(0.1)
+
+    sess = await zalo_bridge.get_session_status(account_id)
+    if not sess.get("active") and not sess.get("has_saved_session"):
+        msg = "Tài khoản chưa kết nối Zalo hoặc phiên đã hết hạn. Vui lòng kết nối QR trước!"
+        yield json.dumps({"type": "error", "message": msg, "status": 401}) + "\n"
+        return
+
+    yield json.dumps({"type": "progress", "stage": "fetching", "message": "Đang kết nối Zalo API và trích xuất dữ liệu..."}) + "\n"
 
     res = await scan_zalo_data(account_id, action, options)
-    if res.get("success"):
-        yield json.dumps({"type": "progress", "stage": "extracting", "message": f"Đã tìm thấy {res.get('count', 0)} bản ghi..."}) + "\n"
-        await asyncio.sleep(0.3)
-        yield json.dumps({
-            "type": "result",
-            "result": {
-                "count": res.get("count", 0),
-                "items": res.get("items", []),
-                "action": action,
-                "zaloGroupId": options.get("zaloGroupId") if options else None
-            }
-        }) + "\n"
-    else:
+    if not res.get("success"):
         yield json.dumps({"type": "error", "message": res.get("message", "Lỗi quét dữ liệu"), "status": 500}) + "\n"
+        return
+
+    items = res.get("items", [])
+    is_hidden = res.get("is_hidden_members", False)
+    total_count = res.get("count", len(items))
+
+    if is_hidden and total_count == 0:
+        yield json.dumps({
+            "type": "hidden_notice",
+            "message": res.get("message") or "Nhóm đã bật ẩn danh sách thành viên đối với tài khoản không phải quản trị viên.",
+            "is_hidden_members": True
+        }) + "\n"
+        yield json.dumps({"type": "result", "result": {"count": 0, "items": [], "action": action, "is_hidden_members": True}}) + "\n"
+        return
+
+    yield json.dumps({"type": "progress", "stage": "streaming", "total": total_count, "message": f"Đã tìm thấy {total_count} mục. Đang truyền dữ liệu..."}) + "\n"
+
+    # Stream items in fast chunks for real-time visual rendering
+    chunk_size = 5
+    for i in range(0, len(items), chunk_size):
+        chunk = items[i:i + chunk_size]
+        yield json.dumps({
+            "type": "chunk",
+            "items": chunk,
+            "current": min(i + chunk_size, len(items)),
+            "total": total_count
+        }) + "\n"
+        await asyncio.sleep(0.02)
+
+    yield json.dumps({
+        "type": "result",
+        "result": {
+            "count": total_count,
+            "items": items,
+            "action": action,
+            "is_hidden_members": is_hidden,
+            "zaloGroupId": options.get("zaloGroupId") if options else None
+        }
+    }) + "\n"
 
 # --- ZALO PHONE CHECK AUTOMATION ---
 async def check_phone_numbers(account_id: int, phone_list: List[str]) -> Dict[str, Any]:
