@@ -1442,21 +1442,13 @@
                                 renderDataScanResults(currentScannedItems, action, false);
                                 statusTitle.innerText = `Đã nhận ${currentScannedItems.length}/${event.total || currentScannedItems.length} mục...`;
                             } else if (event.type === 'hidden_notice') {
-                                if (spinner) spinner.classList.add('hidden');
-                                if (statusIcon) statusIcon.classList.remove('hidden');
-                                statusTitle.className = 'text-sm font-medium text-amber-400';
-                                statusTitle.innerText = `Nhóm đã bật bảo vệ: Ẩn danh sách thành viên`;
-                                statusDesc.innerText = event.message || 'Nhóm này được thiết lập ẩn thành viên đối với tài khoản không phải quản trị viên.';
-                                progress.classList.remove('hidden');
-                                updateIcons();
+                                progress.classList.add('hidden');
                             } else if (event.type === 'result') {
                                 if (event.result && Array.isArray(event.result.items) && currentScannedItems.length === 0) {
                                     currentScannedItems = event.result.items;
                                     renderDataScanResults(currentScannedItems, action, event.result.is_hidden_members);
                                 }
-                                if (!event.result?.is_hidden_members) {
-                                    progress.classList.add('hidden');
-                                }
+                                progress.classList.add('hidden');
                             } else if (event.type === 'error') {
                                 alert('Lỗi: ' + event.message);
                                 progress.classList.add('hidden');
@@ -1478,7 +1470,7 @@
         function renderDataScanResults(items, action, isHidden = false) {
             const tbody = document.getElementById('datascan-table-body');
             const countBadge = document.getElementById('datascan-result-count');
-            countBadge.innerHTML = `${items.length} mục ${isHidden ? '<span class="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30">Nhóm ẩn TV</span>' : ''}`;
+            countBadge.innerHTML = `${items.length} mục`;
 
             if (items.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="text-center py-10 text-slate-500 text-xs">Không tìm thấy bản ghi nào.</td></tr>`;
