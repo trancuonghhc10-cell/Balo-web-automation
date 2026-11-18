@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AkaFlow — Zalo Workspace</title>
+  <style>
+    :root { color-scheme: dark; --bg:#07111f; --panel:#0d1a2d; --line:#20314a; --ink:#f5f8ff; --muted:#92a4bd; --brand:#5b8cff; --ok:#35d39a; --warn:#ffbf69; --bad:#ff6b7a; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif; background:radial-gradient(circle at 15% -10%,#17396b 0,transparent 34%),var(--bg); color:var(--ink); min-height:100vh; }
+    button,input,textarea,select { font:inherit; }
+    button { cursor:pointer; }
+    .shell { display:grid; grid-template-columns:240px 1fr; min-height:100vh; }
+    aside { border-right:1px solid var(--line); padding:28px 18px; background:rgba(7,17,31,.82); backdrop-filter:blur(16px); }
+    .logo { font-size:22px; font-weight:850; letter-spacing:-.8px; margin:0 10px 28px; }
+    .logo span { color:#83a8ff; }
+    nav button { width:100%; text-align:left; border:0; color:var(--muted); background:transparent; padding:11px 12px; border-radius:10px; margin:3px 0; }
+    nav button:hover,nav button.active { color:#fff; background:#142641; }
+    main { padding:34px; max-width:1500px; width:100%; margin:auto; }
+    h1 { margin:0; font-size:30px; letter-spacing:-1px; }
+    h2 { font-size:18px; margin:0; }
+    p { color:var(--muted); }
+    .top { display:flex; justify-content:space-between; gap:20px; align-items:center; margin-bottom:28px; }
+    .badge { border:1px solid var(--line); border-radius:999px; padding:7px 12px; color:var(--muted); font-size:13px; }
+    .grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
+    .card { background:linear-gradient(145deg,rgba(18,35,60,.94),rgba(10,25,44,.94)); border:1px solid var(--line); border-radius:16px; padding:18px; box-shadow:0 16px 50px rgba(0,0,0,.16); }
+    .metric strong { display:block; font-size:28px; margin-top:8px; }
+    .muted { color:var(--muted); font-size:13px; }
+    .section:not(.active) { display:none !important; }
+    .section.active.stack { display:grid; }
+    .section.active:not(.stack) { display:block; }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .space { justify-content:space-between; }
+    input,textarea,select { color:var(--ink); background:#081525; border:1px solid var(--line); border-radius:10px; padding:10px 12px; outline:none; }
+    input:focus,textarea:focus,select:focus { border-color:var(--brand); box-shadow:0 0 0 3px rgba(91,140,255,.13); }
+    .btn { color:white; background:var(--brand); border:0; border-radius:10px; padding:10px 14px; font-weight:700; }
+    .btn.secondary { background:#1a2b45; color:#dce7fb; }
+    .btn.small { padding:7px 10px; font-size:12px; }
+    .btn:disabled { opacity:.45; cursor:not-allowed; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th,td { text-align:left; padding:12px 10px; border-bottom:1px solid var(--line); vertical-align:middle; }
+    th { color:var(--muted); font-weight:650; }
+    .table-wrap { overflow:auto; margin-top:12px; }
+    .pill { display:inline-flex; padding:4px 8px; border-radius:999px; background:#172b46; color:#bcd0ed; font-size:11px; }
+    .pill.ok { background:rgba(53,211,154,.12); color:var(--ok); }
+    .pill.warn { background:rgba(255,191,105,.12); color:var(--warn); }
+    .stack { display:grid; gap:14px; }
+    .two { display:grid; grid-template-columns:1fr 1.4fr; gap:14px; }
+    .form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .form-grid .wide { grid-column:1/-1; }
+    .notice { border-left:3px solid var(--warn); background:rgba(255,191,105,.08); padding:12px 14px; border-radius:8px; color:#f6d6a7; font-size:13px; }
+    .empty { text-align:center; padding:36px; color:var(--muted); }
+    #qr-image { width:220px; max-width:100%; background:white; padding:10px; border-radius:14px; display:none; }
+    .toast { position:fixed; right:22px; bottom:22px; padding:13px 16px; background:#1c3150; border:1px solid #385579; border-radius:12px; display:none; max-width:360px; box-shadow:0 12px 40px #0008; }
+    @media(max-width:900px){ .shell{grid-template-columns:1fr} aside{border-right:0;border-bottom:1px solid var(--line);padding:14px} .logo{margin:0 8px 10px} nav{display:flex;overflow:auto} nav button{width:auto;white-space:nowrap} main{padding:20px} .grid{grid-template-columns:repeat(2,1fr)} .two{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <div class="logo">Aka<span>Flow</span></div>
+    <nav>
+      <button class="active" data-tab="overview">Tổng quan</button>
+      <button data-tab="accounts">Tài khoản</button>
+      <button data-tab="groups">Nhóm</button>
+      <button data-tab="contacts">Danh bạ</button>
+      <button data-tab="campaigns">Chiến dịch</button>
+      <button data-tab="audit">Nhật ký</button>
+    </nav>
+  </aside>
+  <main>
+    <header class="top">
+      <div><h1 id="page-title">Tổng quan</h1><p id="page-subtitle">Không gian quản trị Zalo cục bộ, có kiểm soát quyền.</p></div>
+      <span id="connector-badge" class="badge">Đang kiểm tra kết nối…</span>
+    </header>
+
+    <section id="overview" class="section active stack">
+      <div class="grid">
+        <div class="card metric"><span class="muted">Tài khoản</span><strong id="m-accounts">0</strong></div>
+        <div class="card metric"><span class="muted">Đã kết nối</span><strong id="m-online">0</strong></div>
+        <div class="card metric"><span class="muted">Liên hệ</span><strong id="m-contacts">0</strong></div>
+        <div class="card metric"><span class="muted">Chiến dịch</span><strong id="m-campaigns">0</strong></div>
+      </div>
+      <div class="card">
+        <h2>Nguyên tắc vận hành</h2>
+        <p>Danh sách thành viên chỉ được hiển thị khi phiên hiện tại có quyền xem. Chiến dịch mặc định chạy thử và chỉ nhận liên hệ có trạng thái đồng ý.</p>
+      </div>
+    </section>
+
+    <section id="accounts" class="section stack">
+      <div class="two">
+        <form id="account-form" class="card stack">
+          <h2>Thêm tài khoản</h2>
+          <input id="account-name" required placeholder="Tên gợi nhớ">
+          <textarea id="account-notes" rows="3" placeholder="Ghi chú"></textarea>
+          <button class="btn">Tạo tài khoản</button>
+        </form>
+        <div class="card">
+          <div class="row space"><h2>Kết nối QR</h2><span id="qr-state" class="muted">Chọn “Đăng nhập QR”</span></div>
+          <div class="row" style="margin-top:16px"><img id="qr-image" alt="Mã QR đăng nhập"><div id="qr-help" class="muted">Mã QR chỉ xuất hiện trong trình duyệt này.</div></div>
+        </div>
+      </div>
+      <div class="card"><h2>Danh sách tài khoản</h2><div id="accounts-table" class="table-wrap"></div></div>
+    </section>
+
+    <section id="groups" class="section stack">
+      <div class="card row">
+        <select id="group-account"></select>
+        <button id="load-groups" class="btn">Tải danh sách nhóm</button>
+        <span class="muted">Nhóm ẩn chỉ hiện thành viên khi tài khoản có quyền quản trị.</span>
+      </div>
+      <div class="two">
+        <div class="card"><h2>Nhóm</h2><div id="groups-table" class="table-wrap"><div class="empty">Chưa tải dữ liệu</div></div></div>
+        <div class="card"><h2>Thành viên được phép xem</h2><div id="members-table" class="table-wrap"><div class="empty">Chọn một nhóm</div></div></div>
+      </div>
+    </section>
+
+    <section id="contacts" class="section stack">
+      <div class="two">
+        <form id="contact-form" class="card form-grid">
+          <h2 class="wide">Thêm liên hệ</h2>
+          <input id="contact-name" required placeholder="Tên">
+          <input id="contact-uid" placeholder="Zalo UID">
+          <input id="contact-phone" placeholder="Số điện thoại">
+          <select id="contact-consent"><option value="unknown">Chưa xác nhận</option><option value="granted">Đã đồng ý</option><option value="revoked">Từ chối</option></select>
+          <input id="contact-tags" class="wide" placeholder="Nhãn, phân cách bằng dấu phẩy">
+          <button class="btn wide">Lưu liên hệ</button>
+        </form>
+        <div class="card stack">
+          <h2>Nhập / xuất</h2>
+          <div class="notice">CSV hỗ trợ các cột: name, phone, external_id, tags, consent_status.</div>
+          <input id="csv-file" type="file" accept=".csv,text/csv">
+          <div class="row"><button id="import-csv" class="btn secondary" type="button">Nhập CSV</button><button id="export-csv" class="btn secondary" type="button">Xuất CSV</button></div>
+        </div>
+      </div>
+      <div class="card"><div class="row space"><h2>Danh bạ</h2><span id="selected-count" class="muted">0 đã chọn</span></div><div id="contacts-table" class="table-wrap"></div></div>
+    </section>
+
+    <section id="campaigns" class="section stack">
+      <div class="two">
+        <form id="campaign-form" class="card stack">
+          <h2>Tạo chiến dịch</h2>
+          <select id="campaign-account"></select>
+          <input id="campaign-name" required placeholder="Tên chiến dịch">
+          <textarea id="campaign-message" required rows="5" placeholder="Xin chào [name]…"></textarea>
+          <div class="row"><label>Độ trễ <input id="campaign-delay" type="number" min="5" max="300" value="8" style="width:90px"> giây</label><label><input id="campaign-dry" type="checkbox" checked> Chạy thử</label></div>
+          <div class="notice">Chỉ liên hệ đã chọn và có trạng thái “Đã đồng ý” được đưa vào chiến dịch. Tối đa 100 liên hệ/lần.</div>
+          <button class="btn">Tạo từ danh bạ đã chọn</button>
+        </form>
+        <div class="card"><h2>Chiến dịch</h2><div id="campaigns-table" class="table-wrap"></div></div>
+      </div>
+    </section>
+
+    <section id="audit" class="section"><div class="card"><h2>Nhật ký kiểm toán</h2><div id="audit-table" class="table-wrap"></div></div></section>
+  </main>
+</div>
+<div id="toast" class="toast"></div>
+<script>
+  const state={accounts:[],contacts:[],campaigns:[],selected:new Set(),qrTimer:null,currentGroup:null};
+  const $=s=>document.querySelector(s);
+  const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  async function api(path,options={}){const url=new URL(path,location.href);url.username='';url.password='';const r=await fetch(url,options);const j=await r.json().catch(()=>({detail:r.statusText}));if(!r.ok)throw new Error(j.detail||j.error||'Yêu cầu thất bại');return j}
+  function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.style.display='block';t.style.borderColor=bad?'var(--bad)':'#385579';setTimeout(()=>t.style.display='none',3600)}
+  const tabs={overview:['Tổng quan','Không gian quản trị Zalo cục bộ, có kiểm soát quyền.'],accounts:['Tài khoản','Kết nối và quản lý phiên đăng nhập QR.'],groups:['Nhóm','Xem nhóm và thành viên theo quyền của tài khoản.'],contacts:['Danh bạ','Quản lý đồng ý, nhãn và dữ liệu khách hàng.'],campaigns:['Chiến dịch','Xem trước trước khi gửi và giới hạn tối đa 100 người.'],audit:['Nhật ký','Theo dõi các thao tác quan trọng.']};
+  document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button,.section').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#'+b.dataset.tab).classList.add('active');$('#page-title').textContent=tabs[b.dataset.tab][0];$('#page-subtitle').textContent=tabs[b.dataset.tab][1];if(b.dataset.tab==='audit')loadAudit();});
+  function accountOptions(){const html=state.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');$('#group-account').innerHTML=html;$('#campaign-account').innerHTML=html;}
+  async function loadAccounts(){state.accounts=await api('/api/accounts');accountOptions();$('#m-accounts').textContent=state.accounts.length;$('#m-online').textContent=state.accounts.filter(a=>a.session?.active).length;$('#accounts-table').innerHTML=state.accounts.length?`<table><thead><tr><th>Tên</th><th>Trạng thái</th><th>UID</th><th></th></tr></thead><tbody>${state.accounts.map(a=>`<tr><td><strong>${esc(a.name)}</strong><div class="muted">${esc(a.notes)}</div></td><td><span class="pill ${a.session?.active?'ok':'warn'}">${a.session?.active?'Đã kết nối':'Chưa kết nối'}</span></td><td>${esc(a.session?.own_id||'—')}</td><td><button class="btn small" onclick="startQr(${a.id})">Đăng nhập QR</button> <button class="btn small secondary" onclick="syncFriends(${a.id})">Đồng bộ bạn bè</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Chưa có tài khoản</div>';}
+  async function startQr(id){try{await api(`/api/accounts/${id}/qr/start`,{method:'POST'});$('#qr-state').textContent='Đang tạo mã QR…';clearInterval(state.qrTimer);state.qrTimer=setInterval(()=>pollQr(id),1500)}catch(e){toast(e.message,true)}}
+  async function pollQr(id){try{const s=await api(`/api/accounts/${id}/qr/status`);$('#qr-state').textContent=s.status||'Đang chờ';if(s.qr_image){$('#qr-image').src=s.qr_image;$('#qr-image').style.display='block';$('#qr-help').textContent='Mở Zalo trên điện thoại và quét mã.'}if(['success','logged_in','completed'].includes(s.status)){clearInterval(state.qrTimer);toast('Kết nối thành công');loadAccounts()}}catch(e){clearInterval(state.qrTimer);toast(e.message,true)}}
+  async function syncFriends(id){try{const r=await api(`/api/accounts/${id}/friends/sync`,{method:'POST'});toast(`Đã đồng bộ ${r.count} bạn bè`);loadContacts()}catch(e){toast(e.message,true)}}
+  $('#account-form').onsubmit=async e=>{e.preventDefault();try{await api('/api/accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('#account-name').value,notes:$('#account-notes').value})});e.target.reset();await loadAccounts();toast('Đã tạo tài khoản')}catch(x){toast(x.message,true)}};
+  $('#load-groups').onclick=async()=>{const id=$('#group-account').value;if(!id)return toast('Hãy tạo tài khoản trước',true);$('#groups-table').innerHTML='<div class="empty">Đang tải…</div>';try{const r=await api(`/api/accounts/${id}/groups`);$('#groups-table').innerHTML=r.items?.length?`<table><tbody>${r.items.map(g=>`<tr><td><strong>${esc(g.name)}</strong><div class="muted">${g.total_members||0} thành viên ${g.is_hidden_members?'· danh sách ẩn':''}</div></td><td><button class="btn small" onclick="loadMembers('${esc(g.id)}')">Xem</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Không có nhóm</div>'}catch(e){$('#groups-table').innerHTML=`<div class="empty">${esc(e.message)}</div>`}};
+  async function loadMembers(groupId){const id=$('#group-account').value;state.currentGroup=groupId;$('#members-table').innerHTML='<div class="empty">Đang tải…</div>';try{const r=await api(`/api/accounts/${id}/groups/${encodeURIComponent(groupId)}/members`);if(r.message&&!r.items?.length)$('#members-table').innerHTML=`<div class="notice">${esc(r.message)}</div>`;else $('#members-table').innerHTML=r.items?.length?`<div class="row space"><span class="muted">${r.items.length} thành viên</span><button class="btn small secondary" onclick="importMembers()">Lưu vào danh bạ</button></div><table><thead><tr><th>Tên</th><th>Vai trò</th></tr></thead><tbody>${r.items.map(m=>`<tr><td>${esc(m.name)}</td><td><span class="pill">${esc(m.role)}</span></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Không có dữ liệu</div>'}catch(e){$('#members-table').innerHTML=`<div class="empty">${esc(e.message)}</div>`}};
+  async function importMembers(){const id=$('#group-account').value;if(!state.currentGroup)return;try{const r=await api(`/api/accounts/${id}/groups/${encodeURIComponent(state.currentGroup)}/import`,{method:'POST'});toast(`Đã lưu ${r.count} thành viên vào danh bạ`);loadContacts()}catch(e){toast(e.message,true)}}
+  async function loadContacts(){state.contacts=await api('/api/contacts');$('#m-contacts').textContent=state.contacts.length;$('#contacts-table').innerHTML=state.contacts.length?`<table><thead><tr><th></th><th>Tên</th><th>UID / SĐT</th><th>Đồng ý</th><th>Nguồn</th></tr></thead><tbody>${state.contacts.map(c=>`<tr><td><input type="checkbox" ${state.selected.has(c.id)?'checked':''} onchange="toggleContact(${c.id},this.checked)"></td><td><strong>${esc(c.name)}</strong><div class="muted">${esc(c.tags)}</div></td><td>${esc(c.external_id||'—')}<div class="muted">${esc(c.phone)}</div></td><td><span class="pill ${c.consent_status==='granted'?'ok':c.consent_status==='revoked'?'warn':''}">${esc(c.consent_status)}</span></td><td>${esc(c.source)}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">Chưa có liên hệ</div>';selectedCount()}
+  function toggleContact(id,on){on?state.selected.add(id):state.selected.delete(id);selectedCount()}
+  function selectedCount(){$('#selected-count').textContent=`${state.selected.size} đã chọn`}
+  $('#contact-form').onsubmit=async e=>{e.preventDefault();try{await api('/api/contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('#contact-name').value,external_id:$('#contact-uid').value,phone:$('#contact-phone').value,tags:$('#contact-tags').value,consent_status:$('#contact-consent').value})});e.target.reset();loadContacts();toast('Đã lưu liên hệ')}catch(x){toast(x.message,true)}};
+  $('#import-csv').onclick=async()=>{const f=$('#csv-file').files[0];if(!f)return toast('Hãy chọn file CSV',true);const data=new FormData();data.append('file',f);try{const r=await api('/api/contacts/import',{method:'POST',body:data});toast(`Đã nhập ${r.count} liên hệ`);loadContacts()}catch(e){toast(e.message,true)}};
+  $('#export-csv').onclick=()=>location.href=new URL('/api/contacts/export',location.origin).href;
+  async function loadCampaigns(){state.campaigns=await api('/api/campaigns');$('#m-campaigns').textContent=state.campaigns.length;$('#campaigns-table').innerHTML=state.campaigns.length?`<table><thead><tr><th>Tên</th><th>Trạng thái</th><th>Kết quả</th><th></th></tr></thead><tbody>${state.campaigns.map(c=>`<tr><td><strong>${esc(c.name)}</strong><div class="muted">${c.dry_run?'Chạy thử':'Gửi thật'}</div></td><td><span class="pill">${esc(c.status)}</span></td><td>${c.sent}/${c.total} · lỗi ${c.failed}</td><td><button class="btn small" onclick="startCampaign(${c.id})">Bắt đầu</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Chưa có chiến dịch</div>'}
+  $('#campaign-form').onsubmit=async e=>{e.preventDefault();if(!state.selected.size)return toast('Chọn liên hệ trong tab Danh bạ trước',true);try{await api('/api/campaigns',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:Number($('#campaign-account').value),name:$('#campaign-name').value,message:$('#campaign-message').value,delay_seconds:Number($('#campaign-delay').value),dry_run:$('#campaign-dry').checked,contact_ids:[...state.selected]})});e.target.reset();$('#campaign-dry').checked=true;loadCampaigns();toast('Đã tạo chiến dịch')}catch(x){toast(x.message,true)}};
+  async function startCampaign(id){try{const r=await api(`/api/campaigns/${id}/start`,{method:'POST'});toast(r.dry_run?'Đang chạy thử':'Đã bắt đầu gửi');setTimeout(loadCampaigns,1200)}catch(e){toast(e.message,true)}}
+  async function loadAudit(){const rows=await api('/api/audit');$('#audit-table').innerHTML=rows.length?`<table><thead><tr><th>Thời gian</th><th>Hành động</th><th>Chi tiết</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.created_at)}</td><td>${esc(x.action)}</td><td class="muted">${esc(x.detail)}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">Chưa có nhật ký</div>'}
+  async function init(){try{const h=await api('/api/health');const ok=h.connector?.status==='ok';$('#connector-badge').textContent=ok?'Kết nối Zalo sẵn sàng':'Dịch vụ Zalo đang tắt';$('#connector-badge').style.color=ok?'var(--ok)':'var(--warn)';await Promise.all([loadAccounts(),loadContacts(),loadCampaigns()])}catch(e){toast(e.message,true)}}
+  init();
+</script>
+</body>
+</html>

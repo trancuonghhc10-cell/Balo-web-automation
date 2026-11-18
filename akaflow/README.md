@@ -1,0 +1,41 @@
+# AkaFlow
+
+Web app quản trị Zalo chạy cục bộ, tự chứa dashboard, connector loopback, môi trường Python và bản chạy `zca-js` trong `vendor/zca-js`. Phiên QR được lưu trong `data/zalo_sessions` với quyền chỉ người dùng hệ điều hành hiện tại được đọc.
+
+## Tính năng
+
+- Đăng nhập QR và theo dõi trạng thái nhiều tài khoản.
+- Danh sách nhóm và thành viên theo quyền của phiên đăng nhập; với trưởng/phó nhóm, adapter dùng chỉ mục thành viên quản trị khi Zalo bỏ trống `memberIds`.
+- Lưu thành viên được phép xem vào danh bạ với nhãn nguồn nhóm.
+- Đồng bộ bạn bè vào danh bạ.
+- Danh bạ có nhãn và trạng thái đồng ý.
+- Nhập/xuất CSV UTF-8.
+- Chiến dịch chạy thử hoặc gửi thật, độ trễ tối thiểu 5 giây, tối đa 100 người/lần.
+- Chỉ liên hệ có `consent_status=granted` và có Zalo UID được đưa vào chiến dịch.
+- Nhật ký kiểm toán.
+- Không có màn hình đăng nhập; ứng dụng bắt buộc chỉ lắng nghe tại `127.0.0.1`/loopback.
+
+## Khởi động
+
+Cần cài sẵn Python 3, Node.js 18 trở lên, npm và curl. Script khởi động sẽ tự tạo môi trường Python, cài các thư viện còn thiếu, rồi dùng dịch vụ kết nối đang chạy ở cổng `8001` hoặc tự khởi động dịch vụ đó nếu chưa có.
+
+```bash
+cd /home/pccuong/Downloads/spam/akaflow
+./start.sh
+```
+
+Mở `http://127.0.0.1:8010`.
+
+Lần chạy đầu tiên cần kết nối Internet để tải thư viện Python và JavaScript. Dữ liệu tài khoản, cookie, cơ sở dữ liệu và log chỉ nằm trong thư mục `data/` cục bộ và không được đưa vào Git.
+
+Có thể đổi cổng bằng `AKAFLOW_PORT`. Vì bản này không có đăng nhập, script sẽ từ chối khởi động nếu `AKAFLOW_HOST` không phải địa chỉ loopback.
+
+## CSV
+
+Các cột được hỗ trợ: `name`, `phone`, `external_id`, `tags`, `consent_status`. Giá trị đồng ý: `unknown`, `granted`, `revoked`.
+
+## Giới hạn
+
+- `zca-js` là adapter không chính thức và có thể thay đổi theo Zalo. Bản tích hợp hiện tại là `2.2.0`.
+- AkaFlow không dùng trường theo dõi nội bộ để dựng lại danh sách thành viên bị ẩn.
+- Không mở ứng dụng này ra LAN hoặc Internet khi chưa bổ sung lại lớp xác thực.

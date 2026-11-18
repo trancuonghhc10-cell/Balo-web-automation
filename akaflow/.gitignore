@@ -1,0 +1,8 @@
+__pycache__/
+.venv/
+data/
+vendor/zca-js/node_modules/
+.env
+.env.*
+*.log
+*.pyc
