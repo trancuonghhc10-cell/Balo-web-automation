@@ -106,6 +106,17 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_observed_members_group
             ON observed_members(account_id, group_id, last_seen_at DESC);
 
+            CREATE TABLE IF NOT EXISTS salework_integrations (
+                account_id INTEGER PRIMARY KEY,
+                client_id TEXT NOT NULL,
+                token TEXT NOT NULL,
+                salework_account_id TEXT NOT NULL,
+                webhook_secret TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+            );
+
             CREATE TABLE IF NOT EXISTS facebook_accounts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,

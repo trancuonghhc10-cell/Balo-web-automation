@@ -10,6 +10,8 @@ Web app quản trị Zalo chạy cục bộ, tự chứa dashboard, connector lo
   - Với Thành viên thường trong nhóm ẩn: Chỉ ghi nhận thành viên công khai và UID xuất hiện trong dữ liệu tương tác mà phiên được phép nhận.
   - Với link mời nhóm đang bật: Có thể dán `https://zalo.me/g/...` để đọc `currentMems` mà Zalo trả về; hệ thống không tự bật link và báo rõ khi còn trang dữ liệu chưa được trả về.
 - Listener realtime tự khởi động cùng phiên Zalo và tích lũy UID từ tin nhắn nhóm, mention, reaction, trạng thái nhập/xem/nhận và sự kiện nhóm.
+- Salework Zalo Open API là nguồn tùy chọn theo từng tài khoản: đọc `getGroupInfo`, giải hồ sơ theo lô bằng `getGroupMembers`, hợp nhất theo UID và hiển thị chẩn đoán riêng cho từng nguồn.
+- Đầu nhận webhook Salework có khóa bí mật, ghi nhận người gửi/mention/reaction/sự kiện thêm-rời nhóm nhưng không lưu nội dung tin nhắn.
 - Kho quan sát SQLite lưu nguồn bằng chứng, số lần, lần đầu/lần cuối; không lưu nội dung tin nhắn.
 - Giao diện tách rõ danh sách được phép xem với UID quan sát theo thời gian, không trình bày dữ liệu tích lũy như danh sách nhóm đầy đủ.
 - Không gian Facebook đa hồ sơ: mỗi tài khoản dùng thư mục Chrome riêng trong `data/facebook_profiles`.
@@ -39,6 +41,12 @@ Lần chạy đầu tiên cần kết nối Internet để tải thư viện Pyt
 
 Có thể đổi cổng bằng `AKAFLOW_PORT`. Vì bản này không có đăng nhập, script sẽ từ chối khởi động nếu `AKAFLOW_HOST` không phải địa chỉ loopback.
 
+## Salework
+
+Trong tab **Tài khoản**, chọn tài khoản AkaFlow rồi nhập `client-id`, `token` và Zalo `accountId` đã liên kết trên Salework. Có thể nhập một Group ID để kiểm tra số lượng `memberIds`, `currentMems` và `memVerList` mà Salework thực sự trả về.
+
+Token chỉ được lưu trong SQLite cục bộ (`data/akaflow.db`, quyền `0600`), không được trả lại qua API và không được đưa vào Git. Đường webhook được tạo sau khi lưu cấu hình; vì AkaFlow mặc định chỉ chạy tại `127.0.0.1`, muốn Salework gửi webhook tới máy cần một reverse proxy/tunnel HTTPS có kiểm soát trỏ đúng đường dẫn bí mật đó.
+
 ## CSV
 
 Các cột được hỗ trợ: `name`, `phone`, `external_id`, `tags`, `consent_status`. Giá trị đồng ý: `unknown`, `granted`, `revoked`.
@@ -48,6 +56,7 @@ Các cột được hỗ trợ: `name`, `phone`, `external_id`, `tags`, `consent
 - `zca-js` là adapter không chính thức và có thể thay đổi theo Zalo. Bản tích hợp hiện tại là `2.2.0`.
 - Luồng dự phòng qua link mời được triển khai theo cơ chế của [nexagnet-platform PR #10](https://github.com/nexagnet/nexagnet-platform/pull/10), nhưng được viết lại cho kiến trúc AkaFlow.
 - Link mời không đảm bảo trả toàn bộ thành viên. AkaFlow chỉ hiển thị dữ liệu máy chủ trả cho link hợp lệ, không tự bật link, không dò mã link và không vượt `lockViewMember`.
+- `getGroupMembers` của Salework cần sẵn danh sách UID (`friendMap`); nó giải hồ sơ chứ không tự phát hiện toàn bộ thành viên. Với nhóm ẩn, AkaFlow chỉ dùng `memVerList` của Salework khi `accountId` là Trưởng/Phó nhóm.
 - AkaFlow không dùng trường theo dõi nội bộ để dựng lại danh sách thành viên bị ẩn.
 - Độ phủ quan sát chỉ tăng khi AkaFlow đang chạy và thành viên phát sinh sự kiện mà phiên hiện tại được Zalo gửi hợp lệ.
 - Mô-đun Facebook cần Google Chrome trên máy và selector tự động hàng loạt của dự án cũ không được khôi phục.

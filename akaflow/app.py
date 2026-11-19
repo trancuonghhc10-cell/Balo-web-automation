@@ -4,6 +4,7 @@ import asyncio
 import csv
 import io
 import json
+import secrets
 import shutil
 import subprocess
 import time
@@ -11,12 +12,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 import database as db
 from connector import zalo
+from salework_connector import SaleworkError, salework
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -107,6 +109,17 @@ class GroupLinkIn(BaseModel):
     link: str = Field(min_length=20, max_length=300)
 
 
+class SaleworkConfigIn(BaseModel):
+    client_id: str = Field(min_length=1, max_length=200)
+    token: str = Field(default="", max_length=2000)
+    salework_account_id: str = Field(pattern=r"^\d{5,30}$")
+    enabled: bool = True
+
+
+class SaleworkProbeIn(BaseModel):
+    group_id: str = Field(pattern=r"^\d{5,30}$")
+
+
 @app.get("/api/accounts")
 async def accounts() -> list[dict[str, Any]]:
     items = db.rows("SELECT * FROM accounts ORDER BY id DESC")
@@ -126,6 +139,231 @@ def create_account(payload: AccountIn) -> dict[str, Any]:
     )
     db.audit("account.created", {"account_id": account_id})
     return {"success": True, "id": account_id}
+
+
+def salework_config(account_id: int, *, with_token: bool = False) -> dict[str, Any] | None:
+    config = db.row(
+        "SELECT * FROM salework_integrations WHERE account_id = ?",
+        (account_id,),
+    )
+    if not config:
+        return None
+    config["enabled"] = bool(config.get("enabled"))
+    config["token_set"] = bool(config.get("token"))
+    if not with_token:
+        config.pop("token", None)
+        config.pop("webhook_secret", None)
+    return config
+
+
+@app.get("/api/accounts/{account_id}/salework")
+def get_salework_config(account_id: int) -> dict[str, Any]:
+    if not db.row("SELECT id FROM accounts WHERE id = ?", (account_id,)):
+        raise HTTPException(404, "Không tìm thấy tài khoản")
+    private_config = salework_config(account_id, with_token=True)
+    if not private_config:
+        return {"configured": False, "enabled": False, "token_set": False}
+    config = dict(private_config)
+    config.pop("token", None)
+    config.pop("webhook_secret", None)
+    config["token_set"] = bool(private_config.get("token"))
+    return {
+        "configured": True,
+        **config,
+        "webhook_path": (
+            f"/api/integrations/salework/webhook/{account_id}/"
+            f"{private_config['webhook_secret']}"
+        ),
+    }
+
+
+@app.put("/api/accounts/{account_id}/salework")
+def save_salework_config(account_id: int, payload: SaleworkConfigIn) -> dict[str, Any]:
+    if not db.row("SELECT id FROM accounts WHERE id = ?", (account_id,)):
+        raise HTTPException(404, "Không tìm thấy tài khoản")
+    existing = salework_config(account_id, with_token=True)
+    token = payload.token.strip() or str((existing or {}).get("token") or "")
+    if not token:
+        raise HTTPException(400, "Cần nhập token Salework lần đầu")
+    webhook_secret = str((existing or {}).get("webhook_secret") or "")
+    if not webhook_secret:
+        webhook_secret = secrets.token_urlsafe(32)
+    with db.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO salework_integrations(
+                account_id, client_id, token, salework_account_id,
+                webhook_secret, enabled, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(account_id) DO UPDATE SET
+                client_id = excluded.client_id,
+                token = excluded.token,
+                salework_account_id = excluded.salework_account_id,
+                enabled = excluded.enabled,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                account_id,
+                payload.client_id.strip(),
+                token,
+                payload.salework_account_id.strip(),
+                webhook_secret,
+                int(payload.enabled),
+            ),
+        )
+    db.audit(
+        "salework.config_saved",
+        {
+            "account_id": account_id,
+            "salework_account_id": payload.salework_account_id.strip(),
+            "enabled": payload.enabled,
+        },
+    )
+    return get_salework_config(account_id)
+
+
+@app.post("/api/accounts/{account_id}/salework/test")
+async def test_salework_config(
+    account_id: int, payload: SaleworkProbeIn
+) -> dict[str, Any]:
+    config = salework_config(account_id, with_token=True)
+    if not config or not config.get("enabled"):
+        raise HTTPException(400, "Salework chưa được cấu hình hoặc đang tắt")
+    try:
+        response = await salework.group_info(
+            str(config["client_id"]),
+            str(config["token"]),
+            str(config["salework_account_id"]),
+            payload.group_id,
+        )
+    except SaleworkError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    group_map = response.get("gridInfoMap") or {}
+    group = group_map.get(payload.group_id) if isinstance(group_map, dict) else None
+    if not isinstance(group, dict):
+        raise HTTPException(404, "Salework không trả thông tin nhóm này")
+    return {
+        "success": True,
+        "group_name": group.get("name") or payload.group_id,
+        "total_members": int(group.get("totalMember") or 0),
+        "member_ids": len(group.get("memberIds") or []),
+        "current_mems": len(group.get("currentMems") or []),
+        "mem_ver_list": len(group.get("memVerList") or []),
+        "lock_view_member": int((group.get("setting") or {}).get("lockViewMember") or 0),
+    }
+
+
+@app.post("/api/integrations/salework/webhook/{account_id}/{webhook_secret}")
+async def salework_webhook(
+    account_id: int, webhook_secret: str, request: Request
+) -> dict[str, Any]:
+    content_length = int(request.headers.get("content-length") or 0)
+    if content_length > 1_000_000:
+        raise HTTPException(413, "Webhook quá lớn")
+    config = salework_config(account_id, with_token=True)
+    if (
+        not config
+        or not config.get("enabled")
+        or not secrets.compare_digest(
+            webhook_secret,
+            str(config.get("webhook_secret") or ""),
+        )
+    ):
+        raise HTTPException(404, "Webhook không tồn tại")
+    try:
+        payload = await request.json()
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(400, "Webhook JSON không hợp lệ") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(400, "Webhook JSON không hợp lệ")
+    source_account_id = normalized_uid(payload.get("zaloAccountId"))
+    if source_account_id != normalized_uid(config.get("salework_account_id")):
+        raise HTTPException(403, "Webhook không thuộc tài khoản đã cấu hình")
+
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+    accepted = 0
+
+    def observe(group_id: Any, uid: Any, source: str, details: dict[str, Any] | None = None) -> None:
+        nonlocal accepted
+        if db.observe_member(
+            {
+                "account_id": account_id,
+                "group_id": group_id,
+                "uid": uid,
+                "display_name": (details or {}).get("display_name") or "",
+                "avatar": (details or {}).get("avatar") or "",
+                "source": source,
+            }
+        ):
+            accepted += 1
+
+    for message in data.get("groupMsgs") or []:
+        if not isinstance(message, dict):
+            continue
+        group_id = message.get("idTo")
+        observe(
+            group_id,
+            message.get("uidFrom"),
+            "salework:message_sender",
+            {"display_name": message.get("dName")},
+        )
+        for mention in message.get("mentions") or []:
+            if isinstance(mention, dict):
+                observe(group_id, mention.get("uid"), "salework:mention")
+        quote = message.get("quote")
+        if isinstance(quote, dict):
+            observe(
+                group_id,
+                quote.get("ownerId"),
+                "salework:quote_author",
+                {"display_name": quote.get("fromD")},
+            )
+
+    for reaction in data.get("reactGroups") or []:
+        if not isinstance(reaction, dict):
+            continue
+        observe(
+            reaction.get("idTo") or reaction.get("groupId"),
+            reaction.get("uidFrom") or reaction.get("actorId"),
+            "salework:reaction",
+            {"display_name": reaction.get("dName")},
+        )
+
+    for control in data.get("controls") or []:
+        if not isinstance(control, dict):
+            continue
+        content = control.get("content") if isinstance(control.get("content"), dict) else {}
+        raw_control_data = content.get("data")
+        if isinstance(raw_control_data, str):
+            try:
+                control_data = json.loads(raw_control_data)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                control_data = {}
+        elif isinstance(raw_control_data, dict):
+            control_data = raw_control_data
+        else:
+            control_data = {}
+        group_id = control_data.get("groupId")
+        action = str(control_data.get("act") or content.get("act") or "group_event")[:40]
+        observe(group_id, control_data.get("sourceId"), f"salework:group:{action}")
+        observe(group_id, control_data.get("creatorId"), f"salework:group:{action}")
+        for member in control_data.get("updateMembers") or []:
+            if isinstance(member, dict):
+                observe(
+                    group_id,
+                    member.get("id") or member.get("uid"),
+                    f"salework:group:{action}",
+                    {
+                        "display_name": member.get("dName"),
+                        "avatar": member.get("avatar"),
+                    },
+                )
+
+    db.audit(
+        "salework.webhook_received",
+        {"account_id": account_id, "accepted": accepted},
+    )
+    return {"success": True, "accepted": accepted}
 
 
 class FacebookAccountIn(BaseModel):
@@ -326,7 +564,138 @@ async def groups(account_id: int) -> dict[str, Any]:
     for item in result.get("items", []):
         item["observed_count"] = observed_counts.get(str(item.get("id")), 0)
     result["observation_summary"] = db.observation_summary(account_id)
+    provider_config = salework_config(account_id)
+    result["salework"] = {
+        "configured": bool(provider_config),
+        "enabled": bool((provider_config or {}).get("enabled")),
+    }
     return result
+
+
+def normalized_uid(value: Any) -> str:
+    uid = str(value or "").split("_")[0].strip()
+    return uid if uid.isdigit() else ""
+
+
+async def salework_group_snapshot(account_id: int, group_id: str) -> dict[str, Any] | None:
+    config = salework_config(account_id, with_token=True)
+    if not config or not config.get("enabled"):
+        return None
+    try:
+        response = await salework.group_info(
+            str(config["client_id"]),
+            str(config["token"]),
+            str(config["salework_account_id"]),
+            group_id,
+        )
+        group_map = response.get("gridInfoMap") or {}
+        group = group_map.get(group_id) if isinstance(group_map, dict) else None
+        if not isinstance(group, dict):
+            return {
+                "items": [],
+                "complete": False,
+                "diagnostics": {"status": "missing", "message": "Không có metadata nhóm"},
+            }
+
+        setting = group.get("setting") if isinstance(group.get("setting"), dict) else {}
+        hidden = int(setting.get("lockViewMember") or 0) == 1
+        creator_id = normalized_uid(group.get("creatorId"))
+        admin_ids = {
+            normalized_uid(value)
+            for value in (group.get("adminIds") or [])
+            if normalized_uid(value)
+        }
+        salework_account_id = normalized_uid(config.get("salework_account_id"))
+        authorized_roster = bool(
+            salework_account_id
+            and (salework_account_id == creator_id or salework_account_id in admin_ids)
+        )
+
+        embedded_profiles: dict[str, dict[str, Any]] = {}
+        for member in group.get("currentMems") or []:
+            if not isinstance(member, dict):
+                continue
+            uid = normalized_uid(member.get("id"))
+            if uid:
+                embedded_profiles[uid] = member
+
+        member_ids = [
+            normalized_uid(value) for value in (group.get("memberIds") or [])
+        ]
+        member_ids = [value for value in member_ids if value]
+        mem_ver_ids: list[str] = []
+        if not hidden or authorized_roster:
+            mem_ver_ids = [
+                normalized_uid(value) for value in (group.get("memVerList") or [])
+            ]
+            mem_ver_ids = [value for value in mem_ver_ids if value]
+
+        uids = list(
+            dict.fromkeys(
+                [creator_id, *admin_ids, *member_ids, *embedded_profiles.keys(), *mem_ver_ids]
+            )
+        )
+        uids = [value for value in uids if value]
+        profiles = dict(embedded_profiles)
+        if uids:
+            profiles.update(
+                await salework.member_profiles(
+                    str(config["client_id"]),
+                    str(config["token"]),
+                    str(config["salework_account_id"]),
+                    uids,
+                )
+            )
+
+        items: list[dict[str, Any]] = []
+        for uid in uids:
+            profile = profiles.get(uid) or {}
+            role = "Thành viên"
+            if uid == creator_id:
+                role = "Trưởng nhóm"
+            elif uid in admin_ids:
+                role = "Phó nhóm"
+            items.append(
+                {
+                    "id": uid,
+                    "uid": uid,
+                    "name": str(
+                        profile.get("displayName")
+                        or profile.get("dName")
+                        or profile.get("zaloName")
+                        or f"Người dùng {uid}"
+                    ).strip(),
+                    "zalo_name": str(profile.get("zaloName") or "").strip(),
+                    "avatar": str(profile.get("avatar") or ""),
+                    "role": role,
+                    "is_admin": uid == creator_id or uid in admin_ids,
+                    "type": "member",
+                    "source": "Salework",
+                }
+            )
+
+        total = int(group.get("totalMember") or 0)
+        return {
+            "items": items,
+            "complete": bool(total and len(uids) >= total),
+            "diagnostics": {
+                "status": "ok",
+                "total_members": total,
+                "member_ids": len(group.get("memberIds") or []),
+                "current_mems": len(group.get("currentMems") or []),
+                "mem_ver_list": len(group.get("memVerList") or []),
+                "used_uids": len(uids),
+                "hidden": hidden,
+                "authorized_roster": authorized_roster,
+                "mem_ver_used": bool(mem_ver_ids),
+            },
+        }
+    except SaleworkError as exc:
+        return {
+            "items": [],
+            "complete": False,
+            "diagnostics": {"status": "error", "message": str(exc)},
+        }
 
 
 @app.get("/api/accounts/{account_id}/groups/{group_id}/members")
@@ -340,7 +709,59 @@ async def group_members(account_id: int, group_id: str) -> dict[str, Any]:
         if not m.get("display_name") or str(m.get("display_name", "")).startswith("Người dùng ")
     ]
 
-    result = await zalo.group_members(account_id, group_id, extra_uids=need_profiles[:100])
+    zalo_task = asyncio.create_task(
+        zalo.group_members(account_id, group_id, extra_uids=need_profiles[:100])
+    )
+    salework_task = asyncio.create_task(salework_group_snapshot(account_id, group_id))
+    result, salework_result = await asyncio.gather(zalo_task, salework_task)
+
+    for item in result.get("items", []):
+        item.setdefault("source", "Zalo trực tiếp")
+    if salework_result:
+        items_by_uid = {
+            str(item.get("uid") or item.get("id") or ""): item
+            for item in result.get("items", [])
+        }
+        added = 0
+        for sw_item in salework_result.get("items", []):
+            uid = str(sw_item.get("uid") or "")
+            if not uid:
+                continue
+            existing = items_by_uid.get(uid)
+            if existing:
+                existing["source"] = "Zalo + Salework"
+                if str(existing.get("name") or "").startswith("Người dùng "):
+                    existing["name"] = sw_item.get("name") or existing["name"]
+                if not existing.get("avatar") and sw_item.get("avatar"):
+                    existing["avatar"] = sw_item["avatar"]
+            else:
+                result.setdefault("items", []).append(sw_item)
+                items_by_uid[uid] = sw_item
+                added += 1
+        result["salework_added"] = added
+        result["provider_diagnostics"] = {
+            "salework": salework_result.get("diagnostics") or {}
+        }
+        result["providers"] = ["zca-js", "salework"]
+        if salework_result.get("complete"):
+            result["complete"] = True
+        diagnostics = salework_result.get("diagnostics") or {}
+        if diagnostics.get("status") == "ok":
+            result["message"] = (
+                f"{result.get('message') or ''} Salework bổ sung {added} UID; "
+                f"nguồn này thấy {diagnostics.get('used_uids', 0)}/"
+                f"{diagnostics.get('total_members', 0)} thành viên."
+            ).strip()
+    else:
+        result["providers"] = ["zca-js"]
+
+    total_members = int(result.get("total_members") or 0)
+    if (
+        result.get("member_source") == "enabled_group_link"
+        and total_members > len(result.get("items", []))
+    ):
+        result["complete"] = False
+        result["access_limited"] = True
     if result.get("member_source") in {"public_interactive", "enabled_group_link"}:
         for item in result.get("items", []):
             db.observe_member(
