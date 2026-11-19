@@ -8,6 +8,7 @@ Web app quản trị Zalo chạy cục bộ, tự chứa dashboard, connector lo
 - Danh sách nhóm và thành viên:
   - Với Trưởng/Phó nhóm trong nhóm ẩn (`lockViewMember = 1`): Đọc danh sách Zalo cấp cho phiên quản trị qua `memberIds` hoặc `memVerList`, rồi lấy hồ sơ theo lô.
   - Với Thành viên thường trong nhóm ẩn: Chỉ ghi nhận thành viên công khai và UID xuất hiện trong dữ liệu tương tác mà phiên được phép nhận.
+  - Với link mời nhóm đang bật: Có thể dán `https://zalo.me/g/...` để đọc `currentMems` mà Zalo trả về; hệ thống không tự bật link và báo rõ khi còn trang dữ liệu chưa được trả về.
 - Listener realtime tự khởi động cùng phiên Zalo và tích lũy UID từ tin nhắn nhóm, mention, reaction, trạng thái nhập/xem/nhận và sự kiện nhóm.
 - Kho quan sát SQLite lưu nguồn bằng chứng, số lần, lần đầu/lần cuối; không lưu nội dung tin nhắn.
 - Giao diện tách rõ danh sách được phép xem với UID quan sát theo thời gian, không trình bày dữ liệu tích lũy như danh sách nhóm đầy đủ.
@@ -45,6 +46,8 @@ Các cột được hỗ trợ: `name`, `phone`, `external_id`, `tags`, `consent
 ## Giới hạn
 
 - `zca-js` là adapter không chính thức và có thể thay đổi theo Zalo. Bản tích hợp hiện tại là `2.2.0`.
+- Luồng dự phòng qua link mời được triển khai theo cơ chế của [nexagnet-platform PR #10](https://github.com/nexagnet/nexagnet-platform/pull/10), nhưng được viết lại cho kiến trúc AkaFlow.
+- Link mời không đảm bảo trả toàn bộ thành viên. AkaFlow chỉ hiển thị dữ liệu máy chủ trả cho link hợp lệ, không tự bật link, không dò mã link và không vượt `lockViewMember`.
 - AkaFlow không dùng trường theo dõi nội bộ để dựng lại danh sách thành viên bị ẩn.
 - Độ phủ quan sát chỉ tăng khi AkaFlow đang chạy và thành viên phát sinh sự kiện mà phiên hiện tại được Zalo gửi hợp lệ.
 - Mô-đun Facebook cần Google Chrome trên máy và selector tự động hàng loạt của dự án cũ không được khôi phục.

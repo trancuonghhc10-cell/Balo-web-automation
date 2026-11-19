@@ -103,6 +103,10 @@ class AccountIn(BaseModel):
     notes: str = Field(default="", max_length=500)
 
 
+class GroupLinkIn(BaseModel):
+    link: str = Field(min_length=20, max_length=300)
+
+
 @app.get("/api/accounts")
 async def accounts() -> list[dict[str, Any]]:
     items = db.rows("SELECT * FROM accounts ORDER BY id DESC")
@@ -337,7 +341,7 @@ async def group_members(account_id: int, group_id: str) -> dict[str, Any]:
     ]
 
     result = await zalo.group_members(account_id, group_id, extra_uids=need_profiles[:100])
-    if result.get("member_source") == "public_interactive":
+    if result.get("member_source") in {"public_interactive", "enabled_group_link"}:
         for item in result.get("items", []):
             db.observe_member(
                 {
@@ -346,7 +350,11 @@ async def group_members(account_id: int, group_id: str) -> dict[str, Any]:
                     "uid": item.get("uid") or item.get("id"),
                     "display_name": item.get("name"),
                     "avatar": item.get("avatar"),
-                    "source": f"snapshot:{item.get('role') or 'interaction'}",
+                    "source": (
+                        "enabled_group_link"
+                        if result.get("member_source") == "enabled_group_link"
+                        else f"snapshot:{item.get('role') or 'interaction'}"
+                    ),
                 }
             )
 
@@ -396,6 +404,45 @@ async def group_members(account_id: int, group_id: str) -> dict[str, Any]:
             "group_id": group_id,
             "count": len(result.get("items", [])),
             "hidden": bool(result.get("is_hidden_members")),
+        },
+    )
+    return result
+
+
+@app.post("/api/accounts/{account_id}/group-link/members")
+async def group_link_members(account_id: int, payload: GroupLinkIn) -> dict[str, Any]:
+    if not db.row("SELECT id FROM accounts WHERE id = ?", (account_id,)):
+        raise HTTPException(404, "Không tìm thấy tài khoản")
+
+    result = await zalo.group_link_members(account_id, payload.link.strip())
+    if not result.get("success"):
+        raise HTTPException(
+            int(result.get("status_code") or 400),
+            result.get("error") or "Không đọc được link nhóm",
+        )
+
+    group_id = str(result.get("group_id") or "").strip()
+    if group_id:
+        for item in result.get("items", []):
+            db.observe_member(
+                {
+                    "account_id": account_id,
+                    "group_id": group_id,
+                    "uid": item.get("uid") or item.get("id"),
+                    "display_name": item.get("name"),
+                    "avatar": item.get("avatar"),
+                    "source": "enabled_group_link",
+                }
+            )
+    result["observed_count"] = 0
+    result["resolved_unique_count"] = len(result.get("items", []))
+    db.audit(
+        "group.invite_link_viewed",
+        {
+            "account_id": account_id,
+            "group_id": group_id,
+            "count": len(result.get("items", [])),
+            "complete": bool(result.get("complete")),
         },
     )
     return result

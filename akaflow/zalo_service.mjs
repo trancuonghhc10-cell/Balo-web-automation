@@ -33,6 +33,51 @@ function normalizeObservedId(value) {
     return /^\d+$/.test(normalized) ? normalized : '';
 }
 
+function normalizeGroupInviteLink(value) {
+    try {
+        const url = new URL(String(value ?? '').trim());
+        const match = url.pathname.match(/^\/g\/([A-Za-z0-9_-]+)\/?$/);
+        if (
+            url.protocol !== 'https:' ||
+            url.hostname !== 'zalo.me' ||
+            url.username ||
+            url.password ||
+            url.port ||
+            !match
+        ) {
+            return '';
+        }
+        return `https://zalo.me/g/${match[1]}`;
+    } catch {
+        return '';
+    }
+}
+
+async function getMembersViaEnabledGroupLink(api, groupId) {
+    if (
+        typeof api?.getGroupLinkDetail !== 'function' ||
+        typeof api?.getGroupLinkInfo !== 'function'
+    ) {
+        return null;
+    }
+
+    try {
+        const detail = await api.getGroupLinkDetail(groupId);
+        const link = normalizeGroupInviteLink(detail?.link);
+        if (!link || Number(detail?.enabled) !== 1) return null;
+
+        const info = await api.getGroupLinkInfo({ link });
+        if (String(info?.groupId || '') !== String(groupId)) {
+            console.warn(`[ZaloService] Invite link returned another group for ${groupId}; ignored.`);
+            return null;
+        }
+        return { link, info };
+    } catch (err) {
+        console.warn(`[ZaloService] Enabled invite-link fallback failed for ${groupId}:`, err.message);
+        return null;
+    }
+}
+
 function queueObservedMember(accountId, groupId, uid, source, details = {}) {
     const normalizedGroupId = normalizeObservedId(groupId);
     const normalizedUid = normalizeObservedId(uid);
@@ -640,7 +685,79 @@ const server = http.createServer(async (req, res) => {
                 }
             }
 
-            // 6.2 Get Group Members (only for groups where member list is accessible)
+            // 6.2 Read the member profiles Zalo explicitly exposes for an enabled invite link.
+            // This never enables a link and never guesses link tokens.
+            if (action === 'group-link-members' && req.method === 'POST') {
+                const body = await parseJsonBody(req);
+                const link = normalizeGroupInviteLink(body.link);
+                if (!link) {
+                    return sendJson(res, 400, {
+                        success: false,
+                        error: 'Link nhóm không hợp lệ. Hãy dùng dạng https://zalo.me/g/...'
+                    });
+                }
+                if (typeof api.getGroupLinkInfo !== 'function') {
+                    return sendJson(res, 501, {
+                        success: false,
+                        error: 'Phiên bản kết nối Zalo hiện tại chưa hỗ trợ đọc link nhóm.'
+                    });
+                }
+
+                try {
+                    const info = await api.getGroupLinkInfo({ link });
+                    const ownId = normalizeObservedId(
+                        typeof api.getOwnId === 'function' ? api.getOwnId() : ''
+                    );
+                    const creatorId = normalizeObservedId(info?.creatorId);
+                    const adminIds = new Set(
+                        (Array.isArray(info?.adminIds) ? info.adminIds : [])
+                            .map(normalizeObservedId)
+                            .filter(Boolean)
+                    );
+                    const seen = new Set();
+                    const items = [];
+                    for (const member of (Array.isArray(info?.currentMems) ? info.currentMems : [])) {
+                        const uid = normalizeObservedId(member?.id);
+                        if (!uid || uid === ownId || seen.has(uid)) continue;
+                        seen.add(uid);
+                        items.push({
+                            id: uid,
+                            uid,
+                            name: String(member?.dName || member?.zaloName || `Người dùng ${uid}`).trim(),
+                            zalo_name: String(member?.zaloName || '').trim(),
+                            avatar: String(member?.avatar || ''),
+                            role: uid === creatorId
+                                ? 'Trưởng nhóm'
+                                : (adminIds.has(uid) ? 'Phó nhóm' : 'Thành viên qua link mời'),
+                            is_admin: uid === creatorId || adminIds.has(uid),
+                            type: 'member'
+                        });
+                    }
+                    const hasMore = Boolean(Number(info?.hasMoreMember));
+                    return sendJson(res, 200, {
+                        success: true,
+                        group_id: String(info?.groupId || ''),
+                        group_name: String(info?.name || info?.groupId || ''),
+                        total_members: Number(info?.totalMember || items.length),
+                        resolved_members: items.length,
+                        member_source: 'enabled_group_link',
+                        complete: !hasMore,
+                        has_more: hasMore,
+                        message: hasMore
+                            ? `Link hợp lệ: Zalo trả ${items.length} thành viên ở trang đầu; nhóm còn dữ liệu chưa được trả về.`
+                            : `Link hợp lệ: Zalo cho phép xem ${items.length} thành viên qua link mời đang bật.`,
+                        items
+                    });
+                } catch (linkErr) {
+                    console.warn('[ZaloService] Group invite link lookup failed:', linkErr.message);
+                    return sendJson(res, 400, {
+                        success: false,
+                        error: `Không đọc được link nhóm: ${linkErr.message}`
+                    });
+                }
+            }
+
+            // 6.3 Get Group Members (only for groups where member list is accessible)
             if (action === 'group-members' && req.method === 'POST') {
                 const body = await parseJsonBody(req);
                 const groupId = body.groupId || body.group_id;
@@ -681,6 +798,20 @@ const server = http.createServer(async (req, res) => {
                     let memberUids = [];
                     let memberSource = 'none';
                     const memberRoleMap = new Map();
+                    const embeddedProfiles = {};
+                    let linkFallback = null;
+
+                    for (const member of (
+                        Array.isArray(groupInfo.currentMems) ? groupInfo.currentMems : []
+                    )) {
+                        const uid = normalizeUid(member?.id);
+                        if (!uid) continue;
+                        embeddedProfiles[uid] = {
+                            displayName: member?.dName || '',
+                            zaloName: member?.zaloName || '',
+                            avatar: member?.avatar || ''
+                        };
+                    }
 
                     if (creatorId) memberRoleMap.set(creatorId, 'Trưởng nhóm');
                     adminIds.forEach(id => {
@@ -688,22 +819,26 @@ const server = http.createServer(async (req, res) => {
                     });
 
                     if (isAdmin || !isHidden) {
-                        // Authorized full access: use memberIds or admin memVerList
+                        // Authorized/visible roster: combine UID and embedded-profile fields.
                         const visibleMemberIds = Array.isArray(groupInfo.memberIds)
                             ? groupInfo.memberIds
                             : [];
-                        const adminMemberVersions = (
-                            isHidden &&
-                            isAdmin &&
+                        const allowedMemberVersions = (
+                            (!isHidden || isAdmin) &&
                             Array.isArray(groupInfo.memVerList)
                         ) ? groupInfo.memVerList : [];
-                        const rawMemberIds = visibleMemberIds.length
-                            ? visibleMemberIds
-                            : adminMemberVersions;
+                        const embeddedMemberIds = Object.keys(embeddedProfiles);
+                        const rawMemberIds = [
+                            ...visibleMemberIds,
+                            ...embeddedMemberIds,
+                            ...allowedMemberVersions
+                        ];
 
                         memberSource = visibleMemberIds.length
                             ? 'memberIds'
-                            : (adminMemberVersions.length ? 'memVerList-admin' : 'admin_roster');
+                            : (embeddedMemberIds.length
+                                ? 'currentMems'
+                                : (allowedMemberVersions.length ? 'memVerList-authorized' : 'admin_roster'));
 
                         const extracted = rawMemberIds
                             .map(normalizeUid)
@@ -720,9 +855,16 @@ const server = http.createServer(async (req, res) => {
                                 memberRoleMap.set(uid, 'Thành viên');
                             }
                         });
+
+                        if (extracted.length === 0 && Number(groupInfo.totalMember || 0) > memberUids.length) {
+                            linkFallback = await getMembersViaEnabledGroupLink(api, groupId);
+                        }
                     } else {
                         // Non-admin in hidden group: extract authorized public & interactive members
                         memberSource = 'public_interactive';
+
+                        // An enabled invite link is a separate server-authorized view. Never enable it here.
+                        linkFallback = await getMembersViaEnabledGroupLink(api, groupId);
 
                         // 1. Scan Group Board & Polls
                         if (typeof api.getListBoard === 'function') {
@@ -797,6 +939,29 @@ const server = http.createServer(async (req, res) => {
                         memberUids = Array.from(memberRoleMap.keys()).filter(Boolean);
                     }
 
+                    if (linkFallback?.info) {
+                        const linkedMembers = Array.isArray(linkFallback.info.currentMems)
+                            ? linkFallback.info.currentMems
+                            : [];
+                        for (const member of linkedMembers) {
+                            const uid = normalizeUid(member?.id);
+                            if (!uid || uid === ownId) continue;
+                            embeddedProfiles[uid] = {
+                                displayName: member?.dName || '',
+                                zaloName: member?.zaloName || '',
+                                avatar: member?.avatar || ''
+                            };
+                            if (!memberRoleMap.has(uid)) {
+                                memberRoleMap.set(uid, 'Thành viên qua link mời');
+                            }
+                        }
+                        memberUids = [...new Set([
+                            ...memberUids,
+                            ...Object.keys(embeddedProfiles)
+                        ])].filter(Boolean);
+                        if (linkedMembers.length) memberSource = 'enabled_group_link';
+                    }
+
                     const normalizedCreatorId = String(creatorId || '');
                     const normalizedAdminIds = new Set(
                         adminIds.map(id => String(id))
@@ -808,7 +973,7 @@ const server = http.createServer(async (req, res) => {
 
                     // Fetch profiles in batches of at most 50 (including any historical observed UIDs).
                     const allUidsToFetch = [...new Set([...memberUids, ...extraUids])];
-                    const profiles = {};
+                    const profiles = { ...embeddedProfiles };
                     const chunkSize = 50;
 
                     for (let i = 0; i < allUidsToFetch.length; i += chunkSize) {
@@ -853,7 +1018,11 @@ const server = http.createServer(async (req, res) => {
                     });
 
                     let statusMessage = '';
-                    if (isAdmin) {
+                    if (memberSource === 'enabled_group_link') {
+                        statusMessage = Boolean(Number(linkFallback?.info?.hasMoreMember))
+                            ? `Link mời đang bật: Zalo trả ${items.length} thành viên ở trang đầu; kết quả chưa phải toàn bộ nhóm.`
+                            : `Link mời đang bật: Zalo cho phép xem ${items.length} thành viên qua link.`;
+                    } else if (isAdmin) {
                         statusMessage = isHidden
                             ? `Quản trị viên: Đã đọc ${items.length} thành viên từ danh mục được Zalo cấp quyền.`
                             : `Đã tải ${items.length} thành viên nhóm.`;
@@ -873,6 +1042,12 @@ const server = http.createServer(async (req, res) => {
                         total_members: groupInfo.totalMember || memberUids.length,
                         resolved_members: memberUids.length,
                         member_source: memberSource,
+                        complete: memberSource === 'enabled_group_link'
+                            ? !Boolean(Number(linkFallback?.info?.hasMoreMember))
+                            : true,
+                        has_more: memberSource === 'enabled_group_link'
+                            ? Boolean(Number(linkFallback?.info?.hasMoreMember))
+                            : false,
                         message: statusMessage,
                         items: items,
                         resolved_profiles: profiles

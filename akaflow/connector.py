@@ -73,6 +73,14 @@ class ZaloConnector:
             json=payload,
         )
 
+    async def group_link_members(self, account_id: int, link: str) -> dict[str, Any]:
+        return await self.request(
+            "POST",
+            f"/api/account/{account_id}/group-link-members",
+            timeout=45,
+            json={"link": link},
+        )
+
     async def friends(self, account_id: int) -> dict[str, Any]:
         return await self.request(
             "GET", f"/api/account/{account_id}/friends", timeout=45
