@@ -15,6 +15,7 @@ const __dirname = path.dirname(__filename);
 
 const DATA_DIR = path.resolve(__dirname, 'data');
 const SESSIONS_DIR = path.resolve(DATA_DIR, 'zalo_sessions');
+const OBSERVATION_QUEUE_PATH = path.resolve(DATA_DIR, 'observed-events.ndjson');
 
 if (!fs.existsSync(SESSIONS_DIR)) {
     fs.mkdirSync(SESSIONS_DIR, { recursive: true });
@@ -25,6 +26,162 @@ const activeSessions = new Map();   // accountId -> API instance
 const qrLoginStates = new Map();    // accountId -> { status, qr_image, token, user, error, actions }
 const activeListeners = new Map();  // accountId -> listener instance
 const listenerRules = new Map();    // accountId -> rules array
+const boundListeners = new WeakSet();
+
+function normalizeObservedId(value) {
+    const normalized = String(value ?? '').split('_')[0].trim();
+    return /^\d+$/.test(normalized) ? normalized : '';
+}
+
+function queueObservedMember(accountId, groupId, uid, source, details = {}) {
+    const normalizedGroupId = normalizeObservedId(groupId);
+    const normalizedUid = normalizeObservedId(uid);
+    if (!accountId || !normalizedGroupId || !normalizedUid || !source) return;
+
+    const record = {
+        account_id: Number(accountId),
+        group_id: normalizedGroupId,
+        uid: normalizedUid,
+        display_name: String(details.display_name || details.name || '').slice(0, 200),
+        avatar: String(details.avatar || '').slice(0, 1000),
+        source: String(source).slice(0, 100),
+        event_at: new Date().toISOString()
+    };
+
+    try {
+        fs.appendFileSync(
+            OBSERVATION_QUEUE_PATH,
+            `${JSON.stringify(record)}\n`,
+            { encoding: 'utf8', mode: 0o600 }
+        );
+        fs.chmodSync(OBSERVATION_QUEUE_PATH, 0o600);
+    } catch (err) {
+        console.warn('[ZaloService] Unable to persist observed member:', err.message);
+    }
+}
+
+function collectGroupMessage(accountId, msg, source = 'message_sender') {
+    if (!msg || msg.type !== ThreadType.Group) return;
+    const groupId = msg.threadId || msg.data?.idTo;
+    queueObservedMember(accountId, groupId, msg.data?.uidFrom, source, {
+        display_name: msg.data?.dName
+    });
+    for (const mention of (msg.data?.mentions || [])) {
+        queueObservedMember(accountId, groupId, mention?.uid, 'mention');
+    }
+    queueObservedMember(accountId, groupId, msg.data?.quote?.ownerId, 'quote_author', {
+        display_name: msg.data?.quote?.fromD
+    });
+}
+
+function collectReaction(accountId, reaction, source = 'reaction') {
+    if (!reaction || !reaction.isGroup) return;
+    queueObservedMember(accountId, reaction.threadId || reaction.data?.idTo, reaction.data?.uidFrom, source, {
+        display_name: reaction.data?.dName
+    });
+}
+
+function collectGroupEvent(accountId, event) {
+    if (!event) return;
+    const data = event.data || {};
+    const groupId = data.groupId || data.group_id || event.threadId;
+    const source = `group_event:${event.type || event.act || 'unknown'}`;
+
+    queueObservedMember(accountId, groupId, data.sourceId, source);
+    queueObservedMember(accountId, groupId, data.creatorId, source);
+    queueObservedMember(accountId, groupId, data.actorId, source);
+    queueObservedMember(accountId, groupId, data.editorId, source);
+    for (const member of (Array.isArray(data.updateMembers) ? data.updateMembers : [])) {
+        if (typeof member === 'string' || typeof member === 'number') {
+            queueObservedMember(accountId, groupId, member, source);
+        } else {
+            queueObservedMember(accountId, groupId, member?.id || member?.uid, source, {
+                display_name: member?.dName,
+                avatar: member?.avatar
+            });
+        }
+    }
+    for (const uid of (Array.isArray(data.uids) ? data.uids : [])) {
+        queueObservedMember(accountId, groupId, uid, source);
+    }
+}
+
+async function ensureListener(accountId, api, rules = undefined) {
+    if (!api?.listener) return false;
+    if (rules !== undefined) listenerRules.set(accountId, rules);
+    if (activeListeners.has(accountId)) return true;
+
+    const listener = api.listener;
+    if (!boundListeners.has(listener)) {
+        listener.on('message', async msg => {
+            try {
+                collectGroupMessage(accountId, msg);
+                const senderUid = normalizeObservedId(msg.data?.uidFrom);
+                const ownUid = normalizeObservedId(api.getOwnId());
+                if (!senderUid || senderUid === ownUid) return;
+
+                const content = typeof msg.data?.content === 'string' ? msg.data.content : '';
+                const currentRules = listenerRules.get(accountId) || [];
+                for (const rule of currentRules) {
+                    if (rule.is_active === 0 || rule.is_active === false) continue;
+                    const keyword = String(rule.keyword || '').toLowerCase().trim();
+                    const text = content.toLowerCase().trim();
+                    const matched = keyword === '*' || rule.match_type === 'all'
+                        || (rule.match_type === 'exact' ? text === keyword : text.includes(keyword));
+                    if (matched && rule.reply_message) {
+                        await api.sendMessage(rule.reply_message, msg.threadId || senderUid, msg.type);
+                        break;
+                    }
+                }
+            } catch (err) {
+                console.error('[ZaloService] Listener message handling error:', err.message);
+            }
+        });
+        listener.on('old_messages', (messages, type) => {
+            if (type !== ThreadType.Group) return;
+            for (const msg of (messages || [])) collectGroupMessage(accountId, msg, 'old_message_sender');
+        });
+        listener.on('reaction', reaction => collectReaction(accountId, reaction));
+        listener.on('old_reactions', (reactions, isGroup) => {
+            if (!isGroup) return;
+            for (const reaction of (reactions || [])) collectReaction(accountId, reaction, 'old_reaction');
+        });
+        listener.on('typing', typing => {
+            if (typing?.type !== ThreadType.Group) return;
+            queueObservedMember(accountId, typing.threadId || typing.data?.gid, typing.data?.uid, 'typing');
+        });
+        listener.on('seen_messages', messages => {
+            for (const item of (messages || [])) {
+                if (item?.type !== ThreadType.Group) continue;
+                const groupId = item.threadId || item.data?.groupId;
+                for (const uid of (item.data?.seenUids || [])) queueObservedMember(accountId, groupId, uid, 'seen_message');
+            }
+        });
+        listener.on('delivered_messages', messages => {
+            for (const item of (messages || [])) {
+                if (item?.type !== ThreadType.Group) continue;
+                const groupId = item.threadId || item.data?.groupId;
+                for (const uid of [...(item.data?.deliveredUids || []), ...(item.data?.seenUids || [])]) {
+                    queueObservedMember(accountId, groupId, uid, 'delivered_message');
+                }
+            }
+        });
+        listener.on('undo', event => {
+            if (!event?.isGroup) return;
+            queueObservedMember(accountId, event.threadId || event.data?.idTo, event.data?.uidFrom, 'undo', {
+                display_name: event.data?.dName
+            });
+        });
+        listener.on('group_event', event => collectGroupEvent(accountId, event));
+        listener.on('error', err => console.warn(`[ZaloService] Listener error for account ${accountId}:`, err));
+        boundListeners.add(listener);
+    }
+
+    listener.start({ retryOnClose: true });
+    activeListeners.set(accountId, listener);
+    console.log(`[ZaloService] Realtime observation enabled for account ${accountId}`);
+    return true;
+}
 
 function getSessionFilePath(accountId) {
     return path.join(SESSIONS_DIR, `acc_${accountId}.json`);
@@ -285,6 +442,7 @@ const server = http.createServer(async (req, res) => {
 
                     activeSessions.set(accountId, api);
                     syncApiCookieJar(api);
+                    await ensureListener(accountId, api);
                     state.status = 'success';
                     state.actions = null;
                     if (api.listener && api.listener.ctx) {
@@ -367,12 +525,17 @@ const server = http.createServer(async (req, res) => {
 
             let ownId = null;
             if (hasActive) {
-                try { ownId = activeSessions.get(accountId).getOwnId(); } catch(e) {}
+                try {
+                    const api = activeSessions.get(accountId);
+                    ownId = api.getOwnId();
+                    await ensureListener(accountId, api);
+                } catch(e) {}
             }
             return sendJson(res, 200, {
                 active: hasActive,
                 has_saved_session: hasSaved,
-                own_id: ownId
+                own_id: ownId,
+                listening: activeListeners.has(accountId)
             });
         }
 
@@ -383,6 +546,7 @@ const server = http.createServer(async (req, res) => {
             if (!api) {
                 return sendJson(res, 400, { success: false, error: 'Chưa có phiên lưu hoặc phiên hết hạn' });
             }
+            await ensureListener(accountId, api);
             return sendJson(res, 200, { success: true, own_id: api.getOwnId() });
         }
 
@@ -480,6 +644,9 @@ const server = http.createServer(async (req, res) => {
             if (action === 'group-members' && req.method === 'POST') {
                 const body = await parseJsonBody(req);
                 const groupId = body.groupId || body.group_id;
+                const extraUids = Array.isArray(body.extraUids)
+                    ? body.extraUids.map(s => String(s).split('_')[0].trim()).filter(Boolean)
+                    : [];
                 if (!groupId) return sendJson(res, 400, { error: 'groupId required' });
 
                 try {
@@ -511,43 +678,124 @@ const server = http.createServer(async (req, res) => {
                         groupId, ownId, creatorId, isAdmin, isHidden
                     });
 
-                    if (isHidden && !isAdmin) {
-                        return sendJson(res, 200, {
-                            success: true,
-                            group_id: groupId,
-                            group_name: groupInfo.name || groupId,
-                            is_hidden_members: true,
-                            total_members: groupInfo.totalMember || 0,
-                            items: [],
-                            message: `Nhóm "${groupInfo.name || groupId}" đã bật ẩn danh sách thành viên. Bạn cần quyền quản trị viên để xem.`
+                    let memberUids = [];
+                    let memberSource = 'none';
+                    const memberRoleMap = new Map();
+
+                    if (creatorId) memberRoleMap.set(creatorId, 'Trưởng nhóm');
+                    adminIds.forEach(id => {
+                        if (!memberRoleMap.has(id)) memberRoleMap.set(id, 'Phó nhóm');
+                    });
+
+                    if (isAdmin || !isHidden) {
+                        // Authorized full access: use memberIds or admin memVerList
+                        const visibleMemberIds = Array.isArray(groupInfo.memberIds)
+                            ? groupInfo.memberIds
+                            : [];
+                        const adminMemberVersions = (
+                            isHidden &&
+                            isAdmin &&
+                            Array.isArray(groupInfo.memVerList)
+                        ) ? groupInfo.memVerList : [];
+                        const rawMemberIds = visibleMemberIds.length
+                            ? visibleMemberIds
+                            : adminMemberVersions;
+
+                        memberSource = visibleMemberIds.length
+                            ? 'memberIds'
+                            : (adminMemberVersions.length ? 'memVerList-admin' : 'admin_roster');
+
+                        const extracted = rawMemberIds
+                            .map(normalizeUid)
+                            .filter(Boolean);
+
+                        memberUids = [...new Set([
+                            creatorId,
+                            ...adminIds,
+                            ...extracted
+                        ])].filter(Boolean);
+
+                        extracted.forEach(uid => {
+                            if (!memberRoleMap.has(uid)) {
+                                memberRoleMap.set(uid, 'Thành viên');
+                            }
                         });
+                    } else {
+                        // Non-admin in hidden group: extract authorized public & interactive members
+                        memberSource = 'public_interactive';
+
+                        // 1. Scan Group Board & Polls
+                        if (typeof api.getListBoard === 'function') {
+                            try {
+                                let page = 1;
+                                const maxPages = 3;
+                                while (page <= maxPages) {
+                                    const board = await api.getListBoard({ page, count: 50 }, groupId);
+                                    const boardItems = board?.items || [];
+                                    if (!boardItems.length) break;
+
+                                    for (const it of boardItems) {
+                                        const d = it.data || it;
+                                        const noteCreator = normalizeUid(d.creatorId || d.creator);
+                                        if (noteCreator && !memberRoleMap.has(noteCreator)) {
+                                            memberRoleMap.set(noteCreator, 'Tác giả bài ghim/bảng tin');
+                                        }
+                                        const editor = normalizeUid(d.editorId);
+                                        if (editor && !memberRoleMap.has(editor)) {
+                                            memberRoleMap.set(editor, 'Biên tập bài ghim');
+                                        }
+                                        const sender = normalizeUid(d.params?.senderUid || d.params?.creator_id);
+                                        if (sender && !memberRoleMap.has(sender)) {
+                                            memberRoleMap.set(sender, 'Thành viên đăng bài');
+                                        }
+
+                                        if (Array.isArray(d.likers)) {
+                                            for (const liker of d.likers) {
+                                                const lUid = normalizeUid(typeof liker === 'object' ? (liker.uid || liker.id) : liker);
+                                                if (lUid && !memberRoleMap.has(lUid)) {
+                                                    memberRoleMap.set(lUid, 'Thành viên tương tác (Thích)');
+                                                }
+                                            }
+                                        }
+
+                                        if (Array.isArray(d.options)) {
+                                            for (const opt of d.options) {
+                                                if (Array.isArray(opt.voters)) {
+                                                    for (const voter of opt.voters) {
+                                                        const vUid = normalizeUid(typeof voter === 'object' ? (voter.uid || voter.id) : voter);
+                                                        if (vUid && !memberRoleMap.has(vUid)) {
+                                                            memberRoleMap.set(vUid, 'Thành viên tương tác (Bình chọn)');
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    page++;
+                                }
+                            } catch (boardErr) {
+                                console.warn(`[ZaloService] Board scan notice for group ${groupId}:`, boardErr.message);
+                            }
+                        }
+
+                        // 2. Scan recent conversation history
+                        if (typeof api.getGroupChatHistory === 'function') {
+                            try {
+                                const history = await api.getGroupChatHistory(groupId, 50);
+                                const msgs = history?.groupMsgs || [];
+                                for (const m of msgs) {
+                                    const senderUid = normalizeUid(m.uidFrom);
+                                    if (senderUid && !memberRoleMap.has(senderUid)) {
+                                        memberRoleMap.set(senderUid, 'Thành viên nhắn tin gần đây');
+                                    }
+                                }
+                            } catch (historyErr) {
+                                console.warn(`[ZaloService] Chat history scan notice for group ${groupId}:`, historyErr.message);
+                            }
+                        }
+
+                        memberUids = Array.from(memberRoleMap.keys()).filter(Boolean);
                     }
-
-                    // Zalo may omit memberIds for a hidden group even when the
-                    // current account is its owner/deputy. In that authorized
-                    // case only, use memVerList as the membership index.
-                    const visibleMemberIds = Array.isArray(groupInfo.memberIds)
-                        ? groupInfo.memberIds
-                        : [];
-                    const adminMemberVersions = (
-                        isHidden &&
-                        isAdmin &&
-                        Array.isArray(groupInfo.memVerList)
-                    ) ? groupInfo.memVerList : [];
-                    const rawMemberIds = visibleMemberIds.length
-                        ? visibleMemberIds
-                        : adminMemberVersions;
-
-                    const memberSource = visibleMemberIds.length
-                        ? 'memberIds'
-                        : (adminMemberVersions.length ? 'memVerList-admin' : 'none');
-
-                    // Normalize and deduplicate accessible member IDs.
-                    const memberUids = [...new Set(
-                        rawMemberIds
-                            .map(value => String(value).split('_')[0].trim())
-                            .filter(Boolean)
-                    )];
 
                     const normalizedCreatorId = String(creatorId || '');
                     const normalizedAdminIds = new Set(
@@ -558,12 +806,13 @@ const server = http.createServer(async (req, res) => {
                         `[ZaloService] Group ${groupId}: processing ${memberUids.length} accessible member UIDs from ${memberSource}.`
                     );
 
-                    // Fetch profiles in batches of at most 50.
+                    // Fetch profiles in batches of at most 50 (including any historical observed UIDs).
+                    const allUidsToFetch = [...new Set([...memberUids, ...extraUids])];
                     const profiles = {};
                     const chunkSize = 50;
 
-                    for (let i = 0; i < memberUids.length; i += chunkSize) {
-                        const chunk = memberUids.slice(i, i + chunkSize);
+                    for (let i = 0; i < allUidsToFetch.length; i += chunkSize) {
+                        const chunk = allUidsToFetch.slice(i, i + chunkSize);
 
                         try {
                             if (typeof api.getUserInfo === 'function') {
@@ -586,7 +835,7 @@ const server = http.createServer(async (req, res) => {
 
                     const items = memberUids.map(uid => {
                         const p = profiles[uid] || {};
-                        let role = 'Thành viên';
+                        let role = memberRoleMap.get(uid) || 'Thành viên';
                         if (uid === creatorId) role = 'Trưởng nhóm';
                         else if (adminIds.includes(uid)) role = 'Phó nhóm';
 
@@ -603,6 +852,19 @@ const server = http.createServer(async (req, res) => {
                         };
                     });
 
+                    let statusMessage = '';
+                    if (isAdmin) {
+                        statusMessage = isHidden
+                            ? `Quản trị viên: Đã đọc ${items.length} thành viên từ danh mục được Zalo cấp quyền.`
+                            : `Đã tải ${items.length} thành viên nhóm.`;
+                    } else if (isHidden) {
+                        statusMessage = items.length > 0
+                            ? `Nhóm đã bật ẩn danh sách thành viên: Đã trích xuất ${items.length} thành viên công khai và tương tác (Ban quản trị, bình chọn, bài ghim, tin nhắn).`
+                            : `Nhóm "${groupInfo.name || groupId}" đã bật ẩn danh sách thành viên và chưa có tương tác công khai nào.`;
+                    } else {
+                        statusMessage = `Đã tải ${items.length} thành viên nhóm.`;
+                    }
+
                     return sendJson(res, 200, {
                         success: true,
                         group_id: groupId,
@@ -611,7 +873,9 @@ const server = http.createServer(async (req, res) => {
                         total_members: groupInfo.totalMember || memberUids.length,
                         resolved_members: memberUids.length,
                         member_source: memberSource,
-                        items: items
+                        message: statusMessage,
+                        items: items,
+                        resolved_profiles: profiles
                     });
                 } catch (memberErr) {
                     console.error('[ZaloService] Error fetching group members:', memberErr.message);
@@ -747,67 +1011,8 @@ const server = http.createServer(async (req, res) => {
                     return sendJson(res, 200, { success: true, listening: false });
                 }
 
-                listenerRules.set(accountId, rules);
-
-                if (activeListeners.has(accountId)) {
-                    return sendJson(res, 200, { success: true, listening: true, rules_count: rules.length });
-                }
-
                 try {
-                    const listener = api.listener;
-                    listener.start({ retryOnClose: true });
-                    activeListeners.set(accountId, listener);
-
-                    listener.on('message', async (msg) => {
-                        try {
-                            const senderUid = msg.data.uidFrom;
-                            const ownUid = api.getOwnId();
-                            if (senderUid === ownUid) return;
-
-                            const content = String(msg.data.content || '');
-                            console.log(`[ZaloService] Message from ${senderUid} on account ${accountId}: "${content}"`);
-
-                            // Relay message to FastAPI server
-                            fetch('http://127.0.0.1:8000/api/zalo-webhook/message', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    account_id: accountId,
-                                    from_uid: senderUid,
-                                    to_id: msg.threadId,
-                                    content: content,
-                                    msg_type: msg.data.msgType,
-                                    is_group: msg.type === ThreadType.Group
-                                })
-                            }).catch(() => {});
-
-                            // Match auto-reply rules
-                            const currentRules = listenerRules.get(accountId) || [];
-                            for (const rule of currentRules) {
-                                if (rule.is_active === 0 || rule.is_active === false) continue;
-                                const kw = (rule.keyword || '').toLowerCase().trim();
-                                const text = content.toLowerCase().trim();
-                                let matched = false;
-
-                                if (kw === '*' || rule.match_type === 'all') {
-                                    matched = true;
-                                } else if (rule.match_type === 'exact') {
-                                    matched = (text === kw);
-                                } else { // default 'contains'
-                                    matched = text.includes(kw);
-                                }
-
-                                if (matched && rule.reply_message) {
-                                    console.log(`[ZaloService] Auto-replying to ${senderUid} with rule keyword "${kw}"...`);
-                                    await api.sendMessage(rule.reply_message, msg.threadId || senderUid, msg.type);
-                                    break;
-                                }
-                            }
-                        } catch (err) {
-                            console.error('[ZaloService] Listener message handling error:', err.message);
-                        }
-                    });
-
+                    await ensureListener(accountId, api, rules);
                     return sendJson(res, 200, { success: true, listening: true, rules_count: rules.length });
                 } catch (lErr) {
                     return sendJson(res, 500, { error: lErr.message });

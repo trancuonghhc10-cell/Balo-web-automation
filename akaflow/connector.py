@@ -60,12 +60,17 @@ class ZaloConnector:
             "GET", f"/api/account/{account_id}/groups", timeout=45
         )
 
-    async def group_members(self, account_id: int, group_id: str) -> dict[str, Any]:
+    async def group_members(
+        self, account_id: int, group_id: str, extra_uids: list[str] | None = None
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"groupId": group_id}
+        if extra_uids:
+            payload["extraUids"] = extra_uids
         return await self.request(
             "POST",
             f"/api/account/{account_id}/group-members",
             timeout=90,
-            json={"groupId": group_id},
+            json=payload,
         )
 
     async def friends(self, account_id: int) -> dict[str, Any]:

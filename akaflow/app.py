@@ -3,8 +3,13 @@ from __future__ import annotations
 import asyncio
 import csv
 import io
+import json
+import shutil
+import subprocess
+import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
@@ -16,11 +21,65 @@ from connector import zalo
 
 BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI(title="AkaFlow", docs_url=None, redoc_url=None)
+observation_task: asyncio.Task[None] | None = None
+
+
+def drain_observation_queue() -> int:
+    db.DATA_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    queue_path = db.DATA_DIR / "observed-events.ndjson"
+    processing_paths = sorted(db.DATA_DIR.glob("observed-events.*.processing"))
+
+    if queue_path.exists() and queue_path.stat().st_size:
+        processing_path = db.DATA_DIR / f"observed-events.{time.time_ns()}.processing"
+        try:
+            queue_path.replace(processing_path)
+            processing_paths.append(processing_path)
+        except FileNotFoundError:
+            pass
+
+    accepted = 0
+    for path in processing_paths:
+        completed = False
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    try:
+                        event = json.loads(line)
+                    except (TypeError, ValueError, json.JSONDecodeError):
+                        continue
+                    if isinstance(event, dict) and db.observe_member(event):
+                        accepted += 1
+            completed = True
+        finally:
+            if completed:
+                path.unlink(missing_ok=True)
+    return accepted
+
+
+async def observation_collector() -> None:
+    while True:
+        await asyncio.to_thread(drain_observation_queue)
+        await asyncio.sleep(2)
 
 
 @app.on_event("startup")
-def startup() -> None:
+async def startup() -> None:
+    global observation_task
     db.init_db()
+    await asyncio.to_thread(drain_observation_queue)
+    observation_task = asyncio.create_task(observation_collector())
+
+
+@app.on_event("shutdown")
+async def shutdown() -> None:
+    global observation_task
+    if observation_task:
+        observation_task.cancel()
+        try:
+            await observation_task
+        except asyncio.CancelledError:
+            pass
+        observation_task = None
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -30,8 +89,13 @@ def dashboard() -> FileResponse:
 
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
+    await asyncio.to_thread(drain_observation_queue)
     connector = await zalo.health()
-    return {"status": "ok", "connector": connector}
+    return {
+        "status": "ok",
+        "connector": connector,
+        "observations": db.observation_summary(),
+    }
 
 
 class AccountIn(BaseModel):
@@ -60,6 +124,173 @@ def create_account(payload: AccountIn) -> dict[str, Any]:
     return {"success": True, "id": account_id}
 
 
+class FacebookAccountIn(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    notes: str = Field(default="", max_length=500)
+
+
+class FacebookOpenIn(BaseModel):
+    destination: str = Field(default="home", pattern="^(home|suggestions|requests)$")
+
+
+class FacebookDraftIn(BaseModel):
+    account_id: int
+    target_type: str = Field(pattern="^(profile|group)$")
+    target_url: str = Field(default="", max_length=1000)
+    content: str = Field(min_length=1, max_length=20000)
+
+
+class FacebookDraftStatusIn(BaseModel):
+    status: str = Field(pattern="^(draft|published|cancelled)$")
+
+
+def facebook_url(value: str, *, allow_empty: bool = False) -> str:
+    raw = value.strip()
+    if not raw and allow_empty:
+        return ""
+    parsed = urlparse(raw)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or not (
+        host == "facebook.com" or host.endswith(".facebook.com")
+    ):
+        raise HTTPException(400, "Chỉ chấp nhận địa chỉ HTTPS thuộc facebook.com")
+    return raw
+
+
+def open_facebook_browser(account_id: int, url: str) -> None:
+    if not db.row("SELECT id FROM facebook_accounts WHERE id = ?", (account_id,)):
+        raise HTTPException(404, "Không tìm thấy hồ sơ Facebook")
+
+    chrome = shutil.which("google-chrome") or shutil.which("google-chrome-stable")
+    if not chrome:
+        raise HTTPException(503, "Máy chưa cài Google Chrome")
+
+    profile_dir = db.DATA_DIR / "facebook_profiles" / f"account_{account_id}"
+    profile_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    subprocess.Popen(
+        [
+            chrome,
+            f"--user-data-dir={profile_dir}",
+            "--new-window",
+            "--no-first-run",
+            "--password-store=basic",
+            url,
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    db.execute(
+        "UPDATE facebook_accounts SET last_opened_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (account_id,),
+    )
+
+
+@app.get("/api/facebook/accounts")
+def facebook_accounts() -> list[dict[str, Any]]:
+    return db.rows("SELECT * FROM facebook_accounts ORDER BY id DESC")
+
+
+@app.post("/api/facebook/accounts")
+def create_facebook_account(payload: FacebookAccountIn) -> dict[str, Any]:
+    account_id = db.execute(
+        "INSERT INTO facebook_accounts(name, notes) VALUES (?, ?)",
+        (payload.name.strip(), payload.notes.strip()),
+    )
+    db.audit("facebook.account_created", {"account_id": account_id})
+    return {"success": True, "id": account_id}
+
+
+@app.post("/api/facebook/accounts/{account_id}/open")
+def open_facebook_account(
+    account_id: int, payload: FacebookOpenIn
+) -> dict[str, Any]:
+    destinations = {
+        "home": "https://www.facebook.com/",
+        "suggestions": "https://www.facebook.com/friends/suggestions",
+        "requests": "https://www.facebook.com/friends/requests",
+    }
+    url = destinations[payload.destination]
+    open_facebook_browser(account_id, url)
+    db.audit(
+        "facebook.browser_opened",
+        {"account_id": account_id, "destination": payload.destination},
+    )
+    return {"success": True, "url": url}
+
+
+@app.get("/api/facebook/drafts")
+def facebook_drafts() -> list[dict[str, Any]]:
+    return db.rows(
+        """
+        SELECT d.*, a.name AS account_name
+        FROM facebook_drafts d
+        JOIN facebook_accounts a ON a.id = d.account_id
+        ORDER BY d.id DESC LIMIT 500
+        """
+    )
+
+
+@app.post("/api/facebook/drafts")
+def create_facebook_draft(payload: FacebookDraftIn) -> dict[str, Any]:
+    if not db.row("SELECT id FROM facebook_accounts WHERE id = ?", (payload.account_id,)):
+        raise HTTPException(404, "Không tìm thấy hồ sơ Facebook")
+    target_url = facebook_url(
+        payload.target_url,
+        allow_empty=payload.target_type == "profile",
+    )
+    if payload.target_type == "group" and "/groups/" not in target_url:
+        raise HTTPException(400, "Bài nhóm cần địa chỉ facebook.com/groups/...")
+
+    draft_id = db.execute(
+        """
+        INSERT INTO facebook_drafts(account_id, target_type, target_url, content)
+        VALUES (?, ?, ?, ?)
+        """,
+        (payload.account_id, payload.target_type, target_url, payload.content.strip()),
+    )
+    db.audit("facebook.draft_created", {"draft_id": draft_id})
+    return {"success": True, "id": draft_id}
+
+
+@app.post("/api/facebook/drafts/{draft_id}/open")
+def open_facebook_draft(draft_id: int) -> dict[str, Any]:
+    draft = db.row("SELECT * FROM facebook_drafts WHERE id = ?", (draft_id,))
+    if not draft:
+        raise HTTPException(404, "Không tìm thấy bản nháp")
+    url = draft["target_url"] or "https://www.facebook.com/"
+    open_facebook_browser(int(draft["account_id"]), url)
+    db.execute(
+        """
+        UPDATE facebook_drafts
+        SET status = 'opened', updated_at = CURRENT_TIMESTAMP WHERE id = ?
+        """,
+        (draft_id,),
+    )
+    db.audit("facebook.draft_opened", {"draft_id": draft_id})
+    return {"success": True, "url": url, "content": draft["content"]}
+
+
+@app.post("/api/facebook/drafts/{draft_id}/status")
+def update_facebook_draft_status(
+    draft_id: int, payload: FacebookDraftStatusIn
+) -> dict[str, Any]:
+    if not db.row("SELECT id FROM facebook_drafts WHERE id = ?", (draft_id,)):
+        raise HTTPException(404, "Không tìm thấy bản nháp")
+    db.execute(
+        """
+        UPDATE facebook_drafts
+        SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+        """,
+        (payload.status, draft_id),
+    )
+    db.audit(
+        "facebook.draft_status_changed",
+        {"draft_id": draft_id, "status": payload.status},
+    )
+    return {"success": True, "status": payload.status}
+
+
 @app.post("/api/accounts/{account_id}/qr/start")
 async def qr_start(account_id: int) -> dict[str, Any]:
     if not db.row("SELECT id FROM accounts WHERE id = ?", (account_id,)):
@@ -76,12 +307,88 @@ async def qr_status(account_id: int) -> dict[str, Any]:
 
 @app.get("/api/accounts/{account_id}/groups")
 async def groups(account_id: int) -> dict[str, Any]:
-    return await zalo.groups(account_id)
+    await asyncio.to_thread(drain_observation_queue)
+    result = await zalo.groups(account_id)
+    observed_counts = {
+        str(item["group_id"]): int(item["count"])
+        for item in db.rows(
+            """
+            SELECT group_id, COUNT(*) AS count FROM observed_members
+            WHERE account_id = ? GROUP BY group_id
+            """,
+            (account_id,),
+        )
+    }
+    for item in result.get("items", []):
+        item["observed_count"] = observed_counts.get(str(item.get("id")), 0)
+    result["observation_summary"] = db.observation_summary(account_id)
+    return result
 
 
 @app.get("/api/accounts/{account_id}/groups/{group_id}/members")
 async def group_members(account_id: int, group_id: str) -> dict[str, Any]:
-    result = await zalo.group_members(account_id, group_id)
+    await asyncio.to_thread(drain_observation_queue)
+
+    # Find observed members that need profile resolution (e.g. captured from typing/seen/delivered)
+    pre_observed = db.observed_members(account_id, group_id)
+    need_profiles = [
+        str(m["uid"]) for m in pre_observed
+        if not m.get("display_name") or str(m.get("display_name", "")).startswith("Người dùng ")
+    ]
+
+    result = await zalo.group_members(account_id, group_id, extra_uids=need_profiles[:100])
+    if result.get("member_source") == "public_interactive":
+        for item in result.get("items", []):
+            db.observe_member(
+                {
+                    "account_id": account_id,
+                    "group_id": group_id,
+                    "uid": item.get("uid") or item.get("id"),
+                    "display_name": item.get("name"),
+                    "avatar": item.get("avatar"),
+                    "source": f"snapshot:{item.get('role') or 'interaction'}",
+                }
+            )
+
+    # Update any newly resolved profiles into observed_members
+    resolved_profiles = result.get("resolved_profiles") or {}
+    if resolved_profiles:
+        with db.connection() as conn:
+            for uid, prof in resolved_profiles.items():
+                if isinstance(prof, dict):
+                    d_name = prof.get("displayName") or prof.get("zaloName") or ""
+                    avatar = prof.get("avatar") or ""
+                    if d_name:
+                        conn.execute(
+                            """
+                            UPDATE observed_members
+                            SET display_name = ?,
+                                avatar = CASE WHEN ? != '' THEN ? ELSE avatar END
+                            WHERE account_id = ? AND group_id = ? AND uid = ?
+                            """,
+                            (d_name, avatar, avatar, account_id, group_id, str(uid)),
+                        )
+
+    observed = db.observed_members(account_id, group_id)
+    direct_uids = {
+        str(item.get("uid") or item.get("id") or "")
+        for item in result.get("items", [])
+    }
+    result["observed_items"] = [
+        {
+            "uid": item["uid"],
+            "name": item["display_name"] or f"Người dùng {item['uid']}",
+            "avatar": item["avatar"],
+            "sources": item["sources"],
+            "first_seen_at": item["first_seen_at"],
+            "last_seen_at": item["last_seen_at"],
+            "evidence_count": item["evidence_count"],
+            "already_in_roster": item["uid"] in direct_uids,
+        }
+        for item in observed
+    ]
+    result["observed_count"] = len(observed)
+    result["resolved_unique_count"] = len(direct_uids | {item["uid"] for item in observed})
     db.audit(
         "group.members_viewed",
         {
@@ -94,10 +401,40 @@ async def group_members(account_id: int, group_id: str) -> dict[str, Any]:
     return result
 
 
+@app.get("/api/accounts/{account_id}/observations")
+async def observations(account_id: int, group_id: str | None = None) -> dict[str, Any]:
+    await asyncio.to_thread(drain_observation_queue)
+    if group_id:
+        items = db.observed_members(account_id, group_id)
+    else:
+        items = db.rows(
+            """
+            SELECT account_id, group_id, uid, display_name, avatar,
+                   source_types, first_seen_at, last_seen_at,
+                   evidence_count, last_event_type
+            FROM observed_members WHERE account_id = ?
+            ORDER BY last_seen_at DESC LIMIT 5000
+            """,
+            (account_id,),
+        )
+    return {
+        "success": True,
+        "summary": db.observation_summary(account_id),
+        "items": items,
+    }
+
+
 @app.post("/api/accounts/{account_id}/groups/{group_id}/import")
 async def import_group_members(account_id: int, group_id: str) -> dict[str, Any]:
-    result = await zalo.group_members(account_id, group_id)
-    items = result.get("items", []) if result.get("success") else []
+    result = await group_members(account_id, group_id)
+    direct_items = result.get("items", []) if result.get("success") else []
+    observed_items = result.get("observed_items", []) if result.get("success") else []
+    items_by_uid: dict[str, dict[str, Any]] = {}
+    for item in [*direct_items, *observed_items]:
+        uid = str(item.get("uid") or item.get("id") or "").strip()
+        if uid:
+            items_by_uid[uid] = item
+    items = list(items_by_uid.values())
     imported = 0
     with db.connection() as conn:
         for item in items:

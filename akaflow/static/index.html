@@ -7,7 +7,7 @@
   <style>
     :root { color-scheme: dark; --bg:#07111f; --panel:#0d1a2d; --line:#20314a; --ink:#f5f8ff; --muted:#92a4bd; --brand:#5b8cff; --ok:#35d39a; --warn:#ffbf69; --bad:#ff6b7a; }
     * { box-sizing: border-box; }
-    body { margin:0; font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif; background:radial-gradient(circle at 15% -10%,#17396b 0,transparent 34%),var(--bg); color:var(--ink); min-height:100vh; }
+    body { margin:0; font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif; background:radial-gradient(circle at 15% -10%,#17396b 0,transparent 34%),var(--bg); color:var(--ink); min-height:100vh; overflow-x:hidden; }
     button,input,textarea,select { font:inherit; }
     button { cursor:pointer; }
     .shell { display:grid; grid-template-columns:240px 1fr; min-height:100vh; }
@@ -16,14 +16,14 @@
     .logo span { color:#83a8ff; }
     nav button { width:100%; text-align:left; border:0; color:var(--muted); background:transparent; padding:11px 12px; border-radius:10px; margin:3px 0; }
     nav button:hover,nav button.active { color:#fff; background:#142641; }
-    main { padding:34px; max-width:1500px; width:100%; margin:auto; }
+    main { padding:34px; max-width:1500px; min-width:0; width:100%; margin:auto; }
     h1 { margin:0; font-size:30px; letter-spacing:-1px; }
     h2 { font-size:18px; margin:0; }
     p { color:var(--muted); }
     .top { display:flex; justify-content:space-between; gap:20px; align-items:center; margin-bottom:28px; }
     .badge { border:1px solid var(--line); border-radius:999px; padding:7px 12px; color:var(--muted); font-size:13px; }
     .grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
-    .card { background:linear-gradient(145deg,rgba(18,35,60,.94),rgba(10,25,44,.94)); border:1px solid var(--line); border-radius:16px; padding:18px; box-shadow:0 16px 50px rgba(0,0,0,.16); }
+    .card { min-width:0; background:linear-gradient(145deg,rgba(18,35,60,.94),rgba(10,25,44,.94)); border:1px solid var(--line); border-radius:16px; padding:18px; box-shadow:0 16px 50px rgba(0,0,0,.16); }
     .metric strong { display:block; font-size:28px; margin-top:8px; }
     .muted { color:var(--muted); font-size:13px; }
     .section:not(.active) { display:none !important; }
@@ -46,13 +46,14 @@
     .pill.warn { background:rgba(255,191,105,.12); color:var(--warn); }
     .stack { display:grid; gap:14px; }
     .two { display:grid; grid-template-columns:1fr 1.4fr; gap:14px; }
+    .two > * { min-width:0; }
     .form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
     .form-grid .wide { grid-column:1/-1; }
     .notice { border-left:3px solid var(--warn); background:rgba(255,191,105,.08); padding:12px 14px; border-radius:8px; color:#f6d6a7; font-size:13px; }
     .empty { text-align:center; padding:36px; color:var(--muted); }
     #qr-image { width:220px; max-width:100%; background:white; padding:10px; border-radius:14px; display:none; }
     .toast { position:fixed; right:22px; bottom:22px; padding:13px 16px; background:#1c3150; border:1px solid #385579; border-radius:12px; display:none; max-width:360px; box-shadow:0 12px 40px #0008; }
-    @media(max-width:900px){ .shell{grid-template-columns:1fr} aside{border-right:0;border-bottom:1px solid var(--line);padding:14px} .logo{margin:0 8px 10px} nav{display:flex;overflow:auto} nav button{width:auto;white-space:nowrap} main{padding:20px} .grid{grid-template-columns:repeat(2,1fr)} .two{grid-template-columns:1fr} }
+    @media(max-width:900px){ .shell{grid-template-columns:1fr} aside{min-width:0;border-right:0;border-bottom:1px solid var(--line);padding:14px;overflow:hidden} .logo{margin:0 8px 10px} nav{display:flex;max-width:100%;overflow:auto} nav button{width:auto;white-space:nowrap} main{padding:20px} .top{align-items:flex-start;flex-direction:column}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:minmax(0,1fr)}.btn{white-space:normal} }
   </style>
 </head>
 <body>
@@ -63,6 +64,7 @@
       <button class="active" data-tab="overview">Tổng quan</button>
       <button data-tab="accounts">Tài khoản</button>
       <button data-tab="groups">Nhóm</button>
+      <button data-tab="facebook">Facebook</button>
       <button data-tab="contacts">Danh bạ</button>
       <button data-tab="campaigns">Chiến dịch</button>
       <button data-tab="audit">Nhật ký</button>
@@ -80,10 +82,11 @@
         <div class="card metric"><span class="muted">Đã kết nối</span><strong id="m-online">0</strong></div>
         <div class="card metric"><span class="muted">Liên hệ</span><strong id="m-contacts">0</strong></div>
         <div class="card metric"><span class="muted">Chiến dịch</span><strong id="m-campaigns">0</strong></div>
+        <div class="card metric"><span class="muted">UID quan sát realtime</span><strong id="m-observed">0</strong></div>
       </div>
       <div class="card">
         <h2>Nguyên tắc vận hành</h2>
-        <p>Danh sách thành viên chỉ được hiển thị khi phiên hiện tại có quyền xem. Chiến dịch mặc định chạy thử và chỉ nhận liên hệ có trạng thái đồng ý.</p>
+        <p>Danh sách trực tiếp chỉ hiển thị khi phiên có quyền xem. Với nhóm ẩn, AkaFlow tích lũy riêng UID xuất hiện trong sự kiện realtime được Zalo gửi hợp lệ; đây không phải danh sách đầy đủ tại một thời điểm.</p>
       </div>
     </section>
 
@@ -107,11 +110,41 @@
       <div class="card row">
         <select id="group-account"></select>
         <button id="load-groups" class="btn">Tải danh sách nhóm</button>
-        <span class="muted">Nhóm ẩn chỉ hiện thành viên khi tài khoản có quyền quản trị.</span>
+        <span class="muted">Listener tự chạy nền. Không lưu nội dung tin nhắn; chỉ lưu UID, nhóm, nguồn bằng chứng và thời điểm quan sát.</span>
       </div>
       <div class="two">
         <div class="card"><h2>Nhóm</h2><div id="groups-table" class="table-wrap"><div class="empty">Chưa tải dữ liệu</div></div></div>
-        <div class="card"><h2>Thành viên được phép xem</h2><div id="members-table" class="table-wrap"><div class="empty">Chọn một nhóm</div></div></div>
+        <div class="card"><h2>Thành viên & quan sát realtime</h2><div id="members-table" class="table-wrap"><div class="empty">Chọn một nhóm</div></div></div>
+      </div>
+    </section>
+
+    <section id="facebook" class="section stack">
+      <div class="notice">Facebook chạy bằng hồ sơ Chrome riêng trên máy. AkaFlow không tự bấm đăng bài, like hoặc gửi lời mời; bạn duyệt và thực hiện bước công khai trong cửa sổ Facebook.</div>
+      <div class="two">
+        <form id="facebook-account-form" class="card stack">
+          <h2>Hồ sơ Facebook</h2>
+          <input id="facebook-account-name" required placeholder="Tên gợi nhớ">
+          <textarea id="facebook-account-notes" rows="2" placeholder="Ghi chú"></textarea>
+          <button class="btn">Tạo hồ sơ Chrome riêng</button>
+        </form>
+        <div class="card">
+          <h2>Hồ sơ đã tạo</h2>
+          <div id="facebook-accounts-table" class="table-wrap"><div class="empty">Chưa có hồ sơ</div></div>
+        </div>
+      </div>
+      <div class="two">
+        <form id="facebook-draft-form" class="card stack">
+          <h2>Soạn bài có kiểm soát</h2>
+          <select id="facebook-draft-account"></select>
+          <select id="facebook-target-type"><option value="profile">Trang cá nhân</option><option value="group">Nhóm Facebook</option></select>
+          <input id="facebook-target-url" placeholder="https://www.facebook.com/groups/... (chỉ cần cho nhóm)">
+          <textarea id="facebook-content" required rows="7" placeholder="Nội dung bài viết"></textarea>
+          <button class="btn">Lưu bản nháp</button>
+        </form>
+        <div class="card">
+          <div class="row space"><h2>Bản nháp</h2><span class="muted">Mở trang + sao chép nội dung, sau đó bạn tự đăng</span></div>
+          <div id="facebook-drafts-table" class="table-wrap"><div class="empty">Chưa có bản nháp</div></div>
+        </div>
       </div>
     </section>
 
@@ -156,21 +189,30 @@
 </div>
 <div id="toast" class="toast"></div>
 <script>
-  const state={accounts:[],contacts:[],campaigns:[],selected:new Set(),qrTimer:null,currentGroup:null};
+  const state={accounts:[],facebookAccounts:[],facebookDrafts:[],contacts:[],campaigns:[],selected:new Set(),qrTimer:null,currentGroup:null};
   const $=s=>document.querySelector(s);
   const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const fmtTime=s=>s?new Date(s).toLocaleString('vi-VN'):'—';
+  const sourceLabel=s=>({message_sender:'Gửi tin',old_message_sender:'Tin cũ',mention:'Được nhắc tên',quote_author:'Được trích dẫn',reaction:'Reaction',old_reaction:'Reaction cũ',typing:'Đang nhập',seen_message:'Đã xem',delivered_message:'Đã nhận',undo:'Thu hồi tin'}[s]||String(s||'').replace('group_event:','Sự kiện nhóm: ').replace('snapshot:','Ảnh chụp: '));
   async function api(path,options={}){const url=new URL(path,location.href);url.username='';url.password='';const r=await fetch(url,options);const j=await r.json().catch(()=>({detail:r.statusText}));if(!r.ok)throw new Error(j.detail||j.error||'Yêu cầu thất bại');return j}
   function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.style.display='block';t.style.borderColor=bad?'var(--bad)':'#385579';setTimeout(()=>t.style.display='none',3600)}
-  const tabs={overview:['Tổng quan','Không gian quản trị Zalo cục bộ, có kiểm soát quyền.'],accounts:['Tài khoản','Kết nối và quản lý phiên đăng nhập QR.'],groups:['Nhóm','Xem nhóm và thành viên theo quyền của tài khoản.'],contacts:['Danh bạ','Quản lý đồng ý, nhãn và dữ liệu khách hàng.'],campaigns:['Chiến dịch','Xem trước trước khi gửi và giới hạn tối đa 100 người.'],audit:['Nhật ký','Theo dõi các thao tác quan trọng.']};
-  document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button,.section').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#'+b.dataset.tab).classList.add('active');$('#page-title').textContent=tabs[b.dataset.tab][0];$('#page-subtitle').textContent=tabs[b.dataset.tab][1];if(b.dataset.tab==='audit')loadAudit();});
+  const tabs={overview:['Tổng quan','Không gian quản trị Zalo cục bộ, có kiểm soát quyền.'],accounts:['Tài khoản','Kết nối và quản lý phiên đăng nhập QR.'],groups:['Nhóm','Xem nhóm và thành viên theo quyền của tài khoản.'],facebook:['Facebook','Hồ sơ Chrome riêng và quy trình đăng bài có bước duyệt.'],contacts:['Danh bạ','Quản lý đồng ý, nhãn và dữ liệu khách hàng.'],campaigns:['Chiến dịch','Xem trước trước khi gửi và giới hạn tối đa 100 người.'],audit:['Nhật ký','Theo dõi các thao tác quan trọng.']};
+  document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button,.section').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#'+b.dataset.tab).classList.add('active');$('#page-title').textContent=tabs[b.dataset.tab][0];$('#page-subtitle').textContent=tabs[b.dataset.tab][1];if(b.dataset.tab==='audit')loadAudit();if(b.dataset.tab==='facebook')loadFacebook();});
   function accountOptions(){const html=state.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');$('#group-account').innerHTML=html;$('#campaign-account').innerHTML=html;}
-  async function loadAccounts(){state.accounts=await api('/api/accounts');accountOptions();$('#m-accounts').textContent=state.accounts.length;$('#m-online').textContent=state.accounts.filter(a=>a.session?.active).length;$('#accounts-table').innerHTML=state.accounts.length?`<table><thead><tr><th>Tên</th><th>Trạng thái</th><th>UID</th><th></th></tr></thead><tbody>${state.accounts.map(a=>`<tr><td><strong>${esc(a.name)}</strong><div class="muted">${esc(a.notes)}</div></td><td><span class="pill ${a.session?.active?'ok':'warn'}">${a.session?.active?'Đã kết nối':'Chưa kết nối'}</span></td><td>${esc(a.session?.own_id||'—')}</td><td><button class="btn small" onclick="startQr(${a.id})">Đăng nhập QR</button> <button class="btn small secondary" onclick="syncFriends(${a.id})">Đồng bộ bạn bè</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Chưa có tài khoản</div>';}
+  async function loadAccounts(){state.accounts=await api('/api/accounts');accountOptions();$('#m-accounts').textContent=state.accounts.length;$('#m-online').textContent=state.accounts.filter(a=>a.session?.active).length;$('#accounts-table').innerHTML=state.accounts.length?`<table><thead><tr><th>Tên</th><th>Trạng thái</th><th>UID</th><th></th></tr></thead><tbody>${state.accounts.map(a=>`<tr><td><strong>${esc(a.name)}</strong><div class="muted">${esc(a.notes)}</div></td><td><span class="pill ${a.session?.active?'ok':'warn'}">${a.session?.active?'Đã kết nối':'Chưa kết nối'}</span> ${a.session?.listening?'<span class="pill ok">Listener bật</span>':''}</td><td>${esc(a.session?.own_id||'—')}</td><td><button class="btn small" onclick="startQr(${a.id})">Đăng nhập QR</button> <button class="btn small secondary" onclick="syncFriends(${a.id})">Đồng bộ bạn bè</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Chưa có tài khoản</div>';}
   async function startQr(id){try{await api(`/api/accounts/${id}/qr/start`,{method:'POST'});$('#qr-state').textContent='Đang tạo mã QR…';clearInterval(state.qrTimer);state.qrTimer=setInterval(()=>pollQr(id),1500)}catch(e){toast(e.message,true)}}
   async function pollQr(id){try{const s=await api(`/api/accounts/${id}/qr/status`);$('#qr-state').textContent=s.status||'Đang chờ';if(s.qr_image){$('#qr-image').src=s.qr_image;$('#qr-image').style.display='block';$('#qr-help').textContent='Mở Zalo trên điện thoại và quét mã.'}if(['success','logged_in','completed'].includes(s.status)){clearInterval(state.qrTimer);toast('Kết nối thành công');loadAccounts()}}catch(e){clearInterval(state.qrTimer);toast(e.message,true)}}
   async function syncFriends(id){try{const r=await api(`/api/accounts/${id}/friends/sync`,{method:'POST'});toast(`Đã đồng bộ ${r.count} bạn bè`);loadContacts()}catch(e){toast(e.message,true)}}
   $('#account-form').onsubmit=async e=>{e.preventDefault();try{await api('/api/accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('#account-name').value,notes:$('#account-notes').value})});e.target.reset();await loadAccounts();toast('Đã tạo tài khoản')}catch(x){toast(x.message,true)}};
-  $('#load-groups').onclick=async()=>{const id=$('#group-account').value;if(!id)return toast('Hãy tạo tài khoản trước',true);$('#groups-table').innerHTML='<div class="empty">Đang tải…</div>';try{const r=await api(`/api/accounts/${id}/groups`);$('#groups-table').innerHTML=r.items?.length?`<table><tbody>${r.items.map(g=>`<tr><td><strong>${esc(g.name)}</strong><div class="muted">${g.total_members||0} thành viên ${g.is_hidden_members?'· danh sách ẩn':''}</div></td><td><button class="btn small" onclick="loadMembers('${esc(g.id)}')">Xem</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Không có nhóm</div>'}catch(e){$('#groups-table').innerHTML=`<div class="empty">${esc(e.message)}</div>`}};
-  async function loadMembers(groupId){const id=$('#group-account').value;state.currentGroup=groupId;$('#members-table').innerHTML='<div class="empty">Đang tải…</div>';try{const r=await api(`/api/accounts/${id}/groups/${encodeURIComponent(groupId)}/members`);if(r.message&&!r.items?.length)$('#members-table').innerHTML=`<div class="notice">${esc(r.message)}</div>`;else $('#members-table').innerHTML=r.items?.length?`<div class="row space"><span class="muted">${r.items.length} thành viên</span><button class="btn small secondary" onclick="importMembers()">Lưu vào danh bạ</button></div><table><thead><tr><th>Tên</th><th>Vai trò</th></tr></thead><tbody>${r.items.map(m=>`<tr><td>${esc(m.name)}</td><td><span class="pill">${esc(m.role)}</span></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Không có dữ liệu</div>'}catch(e){$('#members-table').innerHTML=`<div class="empty">${esc(e.message)}</div>`}};
+  function facebookAccountOptions(){const html=state.facebookAccounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');$('#facebook-draft-account').innerHTML=html;}
+  async function loadFacebook(){try{[state.facebookAccounts,state.facebookDrafts]=await Promise.all([api('/api/facebook/accounts'),api('/api/facebook/drafts')]);facebookAccountOptions();$('#facebook-accounts-table').innerHTML=state.facebookAccounts.length?`<table><thead><tr><th>Tên</th><th>Lần mở gần nhất</th><th>Thao tác</th></tr></thead><tbody>${state.facebookAccounts.map(a=>`<tr><td><strong>${esc(a.name)}</strong><div class="muted">${esc(a.notes)}</div></td><td>${esc(a.last_opened_at||'Chưa mở')}</td><td><button class="btn small" onclick="openFacebook(${a.id},'home')">Đăng nhập / Newsfeed</button> <button class="btn small secondary" onclick="openFacebook(${a.id},'suggestions')">Gợi ý kết bạn</button> <button class="btn small secondary" onclick="openFacebook(${a.id},'requests')">Lời mời</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Chưa có hồ sơ</div>';$('#facebook-drafts-table').innerHTML=state.facebookDrafts.length?`<table><thead><tr><th>Nội dung</th><th>Đích</th><th>Trạng thái</th><th></th></tr></thead><tbody>${state.facebookDrafts.map(d=>`<tr><td><strong>${esc(d.content.slice(0,90))}${d.content.length>90?'…':''}</strong><div class="muted">${esc(d.account_name)}</div></td><td>${d.target_type==='group'?'Nhóm':'Trang cá nhân'}<div class="muted">${esc(d.target_url||'facebook.com')}</div></td><td><span class="pill ${d.status==='published'?'ok':''}">${esc(d.status)}</span></td><td><button class="btn small" onclick="prepareFacebookDraft(${d.id})">Mở & sao chép</button> <button class="btn small secondary" onclick="setFacebookDraftStatus(${d.id},'published')">Đánh dấu đã đăng</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Chưa có bản nháp</div>';}catch(e){toast(e.message,true)}}
+  $('#facebook-account-form').onsubmit=async e=>{e.preventDefault();try{await api('/api/facebook/accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('#facebook-account-name').value,notes:$('#facebook-account-notes').value})});e.target.reset();await loadFacebook();toast('Đã tạo hồ sơ Facebook')}catch(x){toast(x.message,true)}};
+  async function openFacebook(id,destination){try{await api(`/api/facebook/accounts/${id}/open`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({destination})});toast('Đã mở Facebook trong hồ sơ Chrome riêng');loadFacebook()}catch(e){toast(e.message,true)}}
+  $('#facebook-draft-form').onsubmit=async e=>{e.preventDefault();if(!$('#facebook-draft-account').value)return toast('Hãy tạo hồ sơ Facebook trước',true);try{await api('/api/facebook/drafts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:Number($('#facebook-draft-account').value),target_type:$('#facebook-target-type').value,target_url:$('#facebook-target-url').value,content:$('#facebook-content').value})});e.target.reset();await loadFacebook();toast('Đã lưu bản nháp')}catch(x){toast(x.message,true)}};
+  async function prepareFacebookDraft(id){try{const r=await api(`/api/facebook/drafts/${id}/open`,{method:'POST'});try{await navigator.clipboard.writeText(r.content);toast('Đã mở Facebook và sao chép nội dung')}catch(_){toast('Đã mở Facebook; trình duyệt không cho tự sao chép, hãy sao chép từ bản nháp',true)}loadFacebook()}catch(e){toast(e.message,true)}}
+  async function setFacebookDraftStatus(id,status){try{await api(`/api/facebook/drafts/${id}/status`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});loadFacebook();toast('Đã cập nhật trạng thái')}catch(e){toast(e.message,true)}}
+  $('#load-groups').onclick=async()=>{const id=$('#group-account').value;if(!id)return toast('Hãy tạo tài khoản trước',true);$('#groups-table').innerHTML='<div class="empty">Đang tải…</div>';try{const r=await api(`/api/accounts/${id}/groups`);$('#groups-table').innerHTML=r.items?.length?`<table><tbody>${r.items.map(g=>`<tr><td><strong>${esc(g.name)}</strong><div class="muted">${g.total_members||0} thành viên ${g.is_hidden_members?'· danh sách ẩn':''} · ${g.observed_count||0} UID quan sát</div></td><td><button class="btn small" onclick="loadMembers('${esc(g.id)}')">Xem</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Không có nhóm</div>'}catch(e){$('#groups-table').innerHTML=`<div class="empty">${esc(e.message)}</div>`}};
+  async function loadMembers(groupId){const id=$('#group-account').value;state.currentGroup=groupId;$('#members-table').innerHTML='<div class="empty">Đang tải…</div>';try{const r=await api(`/api/accounts/${id}/groups/${encodeURIComponent(groupId)}/members`);let html='';if(r.message)html+=`<div class="notice" style="margin-bottom:0.75rem">${esc(r.message)}</div>`;html+=`<div class="row space"><span class="muted">${r.resolved_unique_count||0} UID duy nhất · ${r.items?.length||0} trực tiếp · ${r.observed_count||0} quan sát</span><button class="btn small secondary" onclick="importMembers()">Lưu vào danh bạ</button></div>`;if(r.items?.length)html+=`<h3>Danh sách được phép xem</h3><table><thead><tr><th>Tên</th><th>UID</th><th>Vai trò</th></tr></thead><tbody>${r.items.map(m=>`<tr><td><strong>${esc(m.name)}</strong></td><td><code>${esc(m.uid)}</code></td><td><span class="pill">${esc(m.role)}</span></td></tr>`).join('')}</tbody></table>`;if(r.observed_items?.length)html+=`<h3>Quan sát theo thời gian</h3><div class="notice">Danh sách này chỉ gồm người đã phát sinh sự kiện mà tài khoản được phép nhận; không đại diện toàn bộ thành viên nhóm.</div><table><thead><tr><th>Tên / UID</th><th>Bằng chứng</th><th>Lần cuối</th></tr></thead><tbody>${r.observed_items.map(m=>`<tr><td><strong>${esc(m.name)}</strong><div class="muted"><code>${esc(m.uid)}</code>${m.already_in_roster?' · đã có trong danh sách trực tiếp':''}</div></td><td>${(m.sources||[]).slice(-4).map(s=>`<span class="pill">${esc(sourceLabel(s))}</span>`).join(' ')}<div class="muted">${m.evidence_count||1} lần ghi nhận</div></td><td>${esc(fmtTime(m.last_seen_at))}</td></tr>`).join('')}</tbody></table>`;$('#members-table').innerHTML=html||'<div class="empty">Chưa có dữ liệu. Hãy giữ AkaFlow chạy để tích lũy sự kiện mới.</div>';}catch(e){$('#members-table').innerHTML=`<div class="empty">${esc(e.message)}</div>`}};
   async function importMembers(){const id=$('#group-account').value;if(!state.currentGroup)return;try{const r=await api(`/api/accounts/${id}/groups/${encodeURIComponent(state.currentGroup)}/import`,{method:'POST'});toast(`Đã lưu ${r.count} thành viên vào danh bạ`);loadContacts()}catch(e){toast(e.message,true)}}
   async function loadContacts(){state.contacts=await api('/api/contacts');$('#m-contacts').textContent=state.contacts.length;$('#contacts-table').innerHTML=state.contacts.length?`<table><thead><tr><th></th><th>Tên</th><th>UID / SĐT</th><th>Đồng ý</th><th>Nguồn</th></tr></thead><tbody>${state.contacts.map(c=>`<tr><td><input type="checkbox" ${state.selected.has(c.id)?'checked':''} onchange="toggleContact(${c.id},this.checked)"></td><td><strong>${esc(c.name)}</strong><div class="muted">${esc(c.tags)}</div></td><td>${esc(c.external_id||'—')}<div class="muted">${esc(c.phone)}</div></td><td><span class="pill ${c.consent_status==='granted'?'ok':c.consent_status==='revoked'?'warn':''}">${esc(c.consent_status)}</span></td><td>${esc(c.source)}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">Chưa có liên hệ</div>';selectedCount()}
   function toggleContact(id,on){on?state.selected.add(id):state.selected.delete(id);selectedCount()}
@@ -182,7 +224,7 @@
   $('#campaign-form').onsubmit=async e=>{e.preventDefault();if(!state.selected.size)return toast('Chọn liên hệ trong tab Danh bạ trước',true);try{await api('/api/campaigns',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:Number($('#campaign-account').value),name:$('#campaign-name').value,message:$('#campaign-message').value,delay_seconds:Number($('#campaign-delay').value),dry_run:$('#campaign-dry').checked,contact_ids:[...state.selected]})});e.target.reset();$('#campaign-dry').checked=true;loadCampaigns();toast('Đã tạo chiến dịch')}catch(x){toast(x.message,true)}};
   async function startCampaign(id){try{const r=await api(`/api/campaigns/${id}/start`,{method:'POST'});toast(r.dry_run?'Đang chạy thử':'Đã bắt đầu gửi');setTimeout(loadCampaigns,1200)}catch(e){toast(e.message,true)}}
   async function loadAudit(){const rows=await api('/api/audit');$('#audit-table').innerHTML=rows.length?`<table><thead><tr><th>Thời gian</th><th>Hành động</th><th>Chi tiết</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.created_at)}</td><td>${esc(x.action)}</td><td class="muted">${esc(x.detail)}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">Chưa có nhật ký</div>'}
-  async function init(){try{const h=await api('/api/health');const ok=h.connector?.status==='ok';$('#connector-badge').textContent=ok?'Kết nối Zalo sẵn sàng':'Dịch vụ Zalo đang tắt';$('#connector-badge').style.color=ok?'var(--ok)':'var(--warn)';await Promise.all([loadAccounts(),loadContacts(),loadCampaigns()])}catch(e){toast(e.message,true)}}
+  async function init(){try{const h=await api('/api/health');const ok=h.connector?.status==='ok';const listeners=h.connector?.active_listeners?.length||0;$('#connector-badge').textContent=ok?`Kết nối sẵn sàng · ${listeners} listener`:'Dịch vụ Zalo đang tắt';$('#connector-badge').style.color=ok?'var(--ok)':'var(--warn)';$('#m-observed').textContent=h.observations?.members||0;await Promise.all([loadAccounts(),loadContacts(),loadCampaigns()])}catch(e){toast(e.message,true)}}
   init();
 </script>
 </body>
