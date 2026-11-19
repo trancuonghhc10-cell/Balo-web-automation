@@ -734,18 +734,23 @@ const server = http.createServer(async (req, res) => {
                         });
                     }
                     const hasMore = Boolean(Number(info?.hasMoreMember));
+                    const totalMembers = Number(info?.totalMember || items.length);
+                    const memberListWithheld = totalMembers > 0 && items.length === 0;
                     return sendJson(res, 200, {
                         success: true,
                         group_id: String(info?.groupId || ''),
                         group_name: String(info?.name || info?.groupId || ''),
-                        total_members: Number(info?.totalMember || items.length),
+                        total_members: totalMembers,
                         resolved_members: items.length,
                         member_source: 'enabled_group_link',
-                        complete: !hasMore,
+                        complete: !hasMore && !memberListWithheld,
                         has_more: hasMore,
-                        message: hasMore
-                            ? `Link hợp lệ: Zalo trả ${items.length} thành viên ở trang đầu; nhóm còn dữ liệu chưa được trả về.`
-                            : `Link hợp lệ: Zalo cho phép xem ${items.length} thành viên qua link mời đang bật.`,
+                        access_limited: memberListWithheld,
+                        message: memberListWithheld
+                            ? `Link hợp lệ và Zalo nhận diện nhóm có ${totalMembers} thành viên, nhưng máy chủ không cung cấp danh sách thành viên cho phiên này.`
+                            : (hasMore
+                                ? `Link hợp lệ: Zalo trả ${items.length} thành viên ở trang đầu; nhóm còn dữ liệu chưa được trả về.`
+                                : `Link hợp lệ: Zalo cho phép xem ${items.length} thành viên qua link mời đang bật.`),
                         items
                     });
                 } catch (linkErr) {
